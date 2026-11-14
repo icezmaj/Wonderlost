@@ -46,7 +46,9 @@ const path = require('node:path');
     await page.mouse.move(box.x + box.width * 0.70, box.y + box.height * 0.52, { steps: 10 });
     await page.mouse.up();
     await page.waitForTimeout(900);
-    console.log('After aim:', await page.evaluate(() => window.__wonderlost?.app?.screen));
+    const afterAim = await page.evaluate(() => ({ screen: window.__wonderlost?.app?.screen, hint: document.getElementById('hint')?.textContent }));
+    console.log('After aim:', JSON.stringify(afterAim));
+    if (afterAim.hint?.includes('Touch and drag to aim')) throw new Error('Aim gesture was ignored; first dive remains stuck waiting for input');
     if (errors.length) throw new Error('Browser errors:\n' + errors.join('\n'));
     console.log('PASS: title, begin, first dive and aim gesture completed without browser errors.');
   } finally {
