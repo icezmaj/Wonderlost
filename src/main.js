@@ -10,7 +10,7 @@ import { refreshDaily } from './progression/objectives.js';
 import { refreshEvent } from './progression/events.js';
 import { createWorldView } from './render/worldView.js';
 import { glow, additive } from './render/gfx.js';
-import { loadAssets, setSlotDebug } from './render/assets.js';
+import { loadAssets, setSlotDebug, has } from './render/assets.js';
 import { createDiveController } from './game/diveController.js';
 import { createUi } from './ui/ui.js';
 
@@ -182,10 +182,11 @@ let frameErrors = 0;
 function titleVeil() {
   const { W, H } = view;
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, 'rgba(10,8,31,.92)');
-  g.addColorStop(0.34, 'rgba(10,8,31,.25)');
-  g.addColorStop(0.62, 'rgba(10,8,31,.2)');
-  g.addColorStop(1, 'rgba(10,8,31,.9)');
+  const c = has('mw_backdrop') ? '6,32,40' : '10,8,31'; // match the painted teal sky when it is there
+  g.addColorStop(0, `rgba(${c},.9)`);
+  g.addColorStop(0.34, `rgba(${c},.22)`);
+  g.addColorStop(0.62, `rgba(${c},.16)`);
+  g.addColorStop(1, `rgba(${c},.9)`);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
   // sparks drifting up out of the teapot

@@ -28,19 +28,19 @@ const SLOTS = {
   mw_backdrop: { group: 'world', fit: 'cover', w: 360, h: 640, note: 'Sky only. Opaque.' },
   mw_desk: { group: 'world', fit: 'band', w: 360, h: 200, note: 'The surface the teapot stands on. Top edge is the horizon line.' },
   mw_moon: { group: 'world', w: 40, h: 40, anchor: 'center', note: 'Porcelain moon, shown once the artifact set is complete.' },
-  mw_teapot: { group: 'world', stages: 4, x: 193, y: 468, w: 296, h: 144, anchor: 'ground', note: 'Whole teapot seen from outside, lid off. The village rises from its opening.' },
+  mw_teapot: { group: 'world', stages: 4, x: 184, y: 470, w: 300, h: 146, anchor: 'ground', note: 'Whole teapot seen from outside, lid off. The village rises from its opening.' },
   mw_island: { group: 'world', w: 160, h: 40, anchor: 'center', note: 'One cloud island, reused for all four.' },
-  mw_hearth: { group: 'world', stages: 4, glow: true, x: 180, y: 272, w: 64, h: 80, anchor: 'ground' },
-  mw_cottages: { group: 'world', stages: 4, glow: true, x: 88, y: 196, w: 110, h: 70, anchor: 'ground' },
-  mw_lanterns: { group: 'world', stages: 4, glow: true, x: 180, y: 171, w: 240, h: 160, anchor: 'center', note: 'All lantern strings as one overlay across the islands.' },
-  mw_belltower: { group: 'world', stages: 4, glow: true, x: 180, y: 106, w: 60, h: 96, anchor: 'ground' },
-  mw_garden: { group: 'world', stages: 4, x: 288, y: 192, w: 100, h: 50, anchor: 'ground' },
+  mw_hearth: { group: 'world', stages: 4, glow: true, x: 180, y: 300, w: 86, h: 108, anchor: 'ground' },
+  mw_cottages: { group: 'world', stages: 4, glow: true, x: 76, y: 228, w: 136, h: 86, anchor: 'ground' },
+  mw_lanterns: { group: 'world', stages: 4, glow: true, x: 180, y: 200, w: 250, h: 170, anchor: 'center', note: 'All lantern strings as one overlay across the islands.' },
+  mw_belltower: { group: 'world', stages: 4, glow: true, x: 180, y: 152, w: 78, h: 124, anchor: 'ground' },
+  mw_garden: { group: 'world', stages: 4, x: 286, y: 224, w: 128, h: 64, anchor: 'ground' },
   mw_fore_mist: { group: 'world', fit: 'band', w: 360, h: 90, note: 'Soft mist band drawn in front of the teapot foot.' },
 
   // ---- creatures (three poses and a blink frame each) ----
-  nimbit: { group: 'creature', poses: true, w: 28, h: 28, anchor: 'center', px: 384 },
-  sprigget: { group: 'creature', poses: true, w: 28, h: 28, anchor: 'center', px: 384 },
-  whistlewing: { group: 'creature', poses: true, w: 28, h: 28, anchor: 'center', px: 384 },
+  nimbit: { group: 'creature', poses: true, w: 30, h: 30, anchor: 'center', px: 384 },
+  sprigget: { group: 'creature', poses: true, w: 30, h: 30, anchor: 'center', px: 384 },
+  whistlewing: { group: 'creature', poses: true, w: 30, h: 30, anchor: 'center', px: 384 },
 
   // ---- artifacts ----
   art_spoon: { group: 'artifact', w: 30, h: 30, anchor: 'center', px: 256 },

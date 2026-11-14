@@ -75,6 +75,7 @@ function createUi(app) {
 
   function show(name) {
     for (const k in layers) layers[k].hidden = k !== name;
+    root.dataset.screen = name; // lets the stylesheet theme each screen
   }
 
   // ------------------------------------------------------------ toasts & hints

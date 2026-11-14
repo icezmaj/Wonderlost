@@ -15,12 +15,39 @@ const BOX = { w: 360, h: 480 }; // the diorama is authored in this box, then fit
 
 // Where each upgrade lives (box coords) - used for build celebrations.
 const ANCHOR = {
-  teapot: [180, 400],
-  hearth: [180, 246],
-  cottages: [86, 182],
-  lanterns: [180, 214],
-  belltower: [180, 72],
-  garden: [282, 176]
+  teapot: [184, 400],
+  hearth: [180, 256],
+  cottages: [76, 192],
+  lanterns: [180, 226],
+  belltower: [180, 96],
+  garden: [286, 200]
+};
+
+// The four buildings were first drawn small, at the `from` points. PLACE moves
+// and enlarges each one (code-drawn art, its lights and its island alike) so
+// the village fills the screen. Image slots in config/slots.js sit at `to`.
+const PLACE = {
+  belltower: { from: [180, 106], to: [180, 152], k: 1.28 },
+  cottages: { from: [88, 196], to: [76, 228], k: 1.22 },
+  garden: { from: [288, 192], to: [286, 224], k: 1.26 },
+  hearth: { from: [180, 272], to: [180, 300], k: 1.32 }
+};
+const ISLAND = { belltower: [180, 112, 104, 28], cottages: [84, 202, 124, 32], garden: [280, 198, 120, 32], hearth: [180, 282, 158, 36] };
+
+/** Run drawing code written for a building's original spot at its new place and size. */
+function at(g, id, fn) {
+  const p = PLACE[id];
+  g.save();
+  g.translate(p.to[0], p.to[1]);
+  g.scale(p.k, p.k);
+  g.translate(-p.from[0], -p.from[1]);
+  fn();
+  g.restore();
+}
+/** Where an original-layout point of a building ends up. */
+const moved = (id, x, y) => {
+  const p = PLACE[id];
+  return [p.to[0] + (x - p.from[0]) * p.k, p.to[1] + (y - p.from[1]) * p.k];
 };
 
 const CRACKS = [
@@ -33,6 +60,7 @@ const CUP_SPOTS = [[62, 189, '#ffd3dd', '#ff8fa3'], [92, 184, '#d6efff', '#6fa8f
 const BUSH_SPOTS = [[256, 181], [300, 181], [276, 177], [314, 186]];
 const FOLK_SPOTS = [[50, 191], [76, 194], [104, 192], [124, 196], [66, 199], [110, 200]];
 const LAMP_COLORS = ['#ffcf5c', '#ff8fa3', '#7fe3d8'];
+const CREATURE_SCALE = 1.45; // creatures in the village, relative to their ~28-unit base size
 
 function createWorldView(getState) {
   let bg = null;
@@ -45,9 +73,9 @@ function createWorldView(getState) {
   const steam = [];
   const hearts = [];
   const critters = {
-    nimbit: { x: 132, min: 118, max: 242, y: 261, dir: 1, pause: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
-    sprigget: { x: 270, min: 250, max: 312, y: 175, dir: -1, pause: 2, hop: 0, happy: 0, sx: 0, sy: 0 },
-    whistlewing: { x: 180, y: 58, phase: 0, hop: 0, happy: 0, sx: 0, sy: 0 }
+    nimbit: { x: 126, min: 104, max: 256, y: 292, dir: 1, pause: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
+    sprigget: { x: 270, min: 236, max: 334, y: 214, dir: -1, pause: 2, hop: 0, happy: 0, sx: 0, sy: 0 },
+    whistlewing: { x: 180, y: 60, phase: 0, hop: 0, happy: 0, sx: 0, sy: 0 }
   };
 
   const toScreen = (bx, by, bob = 0) => [geom.ox + bx * geom.s, geom.oy + (by + bob) * geom.s];
@@ -98,14 +126,22 @@ function createWorldView(getState) {
       circle(g, 64, my - 6, 16);
     }
     // warm horizon behind the teapot
+    const painted = has('mw_backdrop'); // painted skies carry their own light
     additive(g, () => {
-      glow(g, W / 2, deskY, 250 * geom.s, '#ff9d6b', 0.12 + p * 0.3);
-      if (p >= 1) glow(g, W / 2, geom.oy + 60 * geom.s, 190 * geom.s, '#ffe9a8', 0.22);
+      glow(g, W / 2, deskY, 250 * geom.s, '#ff9d6b', painted ? 0.06 + p * 0.12 : 0.12 + p * 0.3);
+      if (p >= 1) glow(g, W / 2, geom.oy + 60 * geom.s, 190 * geom.s, '#ffe9a8', painted ? 0.1 : 0.22);
     });
 
     // the Bureau desk
     if (band(g, 'mw_desk', W, deskY, H)) {
-      additive(g, () => glow(g, W / 2, deskY + 20 * geom.s, 190 * geom.s, '#ffb86b', 0.2 + p * 0.12));
+      // haze over the horizon so the desk's top edge is not a hard line
+      const haze = g.createLinearGradient(0, deskY - 30 * geom.s, 0, deskY + 44 * geom.s);
+      haze.addColorStop(0, 'rgba(126,196,192,0)');
+      haze.addColorStop(0.42, `rgba(126,196,192,${0.3 + p * 0.1})`);
+      haze.addColorStop(1, 'rgba(126,196,192,0)');
+      g.fillStyle = haze;
+      g.fillRect(0, deskY - 30 * geom.s, W, 74 * geom.s);
+      additive(g, () => glow(g, W / 2, deskY + 20 * geom.s, 190 * geom.s, '#ffb86b', 0.1 + p * 0.1));
       return;
     }
     const desk = g.createLinearGradient(0, deskY, 0, H);
@@ -130,7 +166,17 @@ function createWorldView(getState) {
 
   function drawTeapot(g, st) {
     const lv = upgradeLevel(st, 'teapot');
-    if (slot(g, 'mw_teapot_' + lv)) return;
+    if (has('mw_teapot_' + lv)) {
+      // soft contact shadow so the pot stands on the desk instead of floating
+      g.save();
+      g.translate(184, 459);
+      g.scale(1, 0.13);
+      glow(g, 0, 0, 170, '#03171c', 0.9);
+      glow(g, 0, 0, 110, '#03171c', 0.8);
+      g.restore();
+      slot(g, 'mw_teapot_' + lv);
+      return;
+    }
     const q = Math.min(1, (lv / 3) * 0.75 + restoration(st) * 0.25);
     const light = mixHex('#a9acc6', '#ffffff', q);
     const base = mixHex('#8386a6', '#eef2ff', q);
@@ -265,7 +311,12 @@ function createWorldView(getState) {
     g.restore();
   }
 
-  function island(g, x, y, w, h, alive, p) {
+  function island(g, id, alive, p) {
+    // building images stand on their own painted cloud, so they need no island
+    if (has(`mw_${id}_${upgradeLevel(getState(), id)}`)) return;
+    const [ox, oy, ow, h] = ISLAND[id];
+    const [x, y] = moved(id, ox, oy);
+    const w = ow * PLACE[id].k;
     if (place(g, 'mw_island', x, y, { w, alpha: alive ? 1 : 0.3 })) return;
     if (alive) cloud(g, x, y, w, h, mixHex('#b9b6e2', '#ffffff', 0.45 + p * 0.55), mixHex('#7772b3', '#c9b8ee', 0.4 + p * 0.6));
     else cloud(g, x, y, w, h, 'rgba(150,146,208,.22)', 'rgba(110,106,170,.14)');
@@ -318,17 +369,18 @@ function createWorldView(getState) {
     const L = (id) => upgradeLevel(st, id);
     lamps = [];
 
-    island(g, 180, 112, 104, 28, L('belltower') > 0, p);
-    island(g, 84, 202, 124, 32, L('cottages') > 0, p);
-    island(g, 280, 198, 120, 32, L('garden') > 0, p);
-    island(g, 180, 282, 158, 36, true, p);
+    island(g, 'belltower', L('belltower') > 0, p);
+    island(g, 'cottages', L('cottages') > 0, p);
+    island(g, 'garden', L('garden') > 0, p);
+    island(g, 'hearth', true, p);
 
     // --- Lantern Lane: strings of lanterns between islands ---
+    // each string runs from one building's island to another's
     const strings = [
-      [[118, 190], [160, 232]],
-      [[200, 232], [246, 186]],
-      [[72, 172], [158, 102]],
-      [[202, 102], [292, 170]]
+      [[112, 172], [154, 132]],
+      [[206, 132], [262, 180]],
+      [[122, 214], [150, 226]],
+      [[210, 226], [246, 212]]
     ];
     const nStrings = [0, 1, 2, 4][L('lanterns')];
     const lanternArt = slot(g, 'mw_lanterns_' + L('lanterns'));
@@ -339,7 +391,7 @@ function createWorldView(getState) {
       if (!on) g.globalAlpha = 0.16;
       const mx = (a[0] + b[0]) / 2;
       const my = (a[1] + b[1]) / 2 + 16;
-      g.strokeStyle = on ? '#6a5a9c' : '#9d98d6';
+      g.strokeStyle = on ? '#e9c9c2' : '#9d98d6';
       g.lineWidth = 1.2;
       g.beginPath();
       g.moveTo(a[0], a[1]);
@@ -351,16 +403,21 @@ function createWorldView(getState) {
         const y = (1 - u) * (1 - u) * a[1] + 2 * (1 - u) * u * my + u * u * b[1];
         const col = LAMP_COLORS[(k + si) % 3];
         g.fillStyle = on ? col : '#9d98d6';
-        roundRect(g, x - 3, y + 1, 6, 8, 2.6);
+        roundRect(g, x - 3.6, y + 1, 7.2, 9.6, 3.1);
         g.fill();
-        if (on) lamps.push([x, y + 5, col]);
+        if (on) {
+          g.fillStyle = 'rgba(255,255,255,.55)';
+          roundRect(g, x - 2, y + 2.4, 2.2, 4.4, 1.1);
+          g.fill();
+          lamps.push([x, y + 5.8, col]);
+        }
       }
       g.restore();
     });
 
     // --- Bell Tower ---
     const bell = L('belltower');
-    if (!slot(g, 'mw_belltower_' + bell)) ghost(g, bell > 0, (gh) => {
+    if (!slot(g, 'mw_belltower_' + bell)) at(g, 'belltower', () => ghost(g, bell > 0, (gh) => {
       const wall = gh ? '#9d98d6' : '#efe6ff';
       g.fillStyle = gh ? '#9d98d6' : '#c9bdf0';
       g.beginPath();
@@ -417,15 +474,15 @@ function createWorldView(getState) {
         g.fillStyle = '#ffcf5c';
         star4(g, 180, 17, 5, 0);
       }
-    });
+    }));
 
     // --- Cloud Cottages (teacup houses) ---
     const cots = L('cottages');
-    if (!slot(g, 'mw_cottages_' + cots)) CUP_SPOTS.forEach(([x, y, col, trim], i) => cup(g, x, y, col, trim, cots >= 3 || (cots >= 2 && i === 0), i >= cots));
+    if (!slot(g, 'mw_cottages_' + cots)) at(g, 'cottages', () => CUP_SPOTS.forEach(([x, y, col, trim], i) => cup(g, x, y, col, trim, cots >= 3 || (cots >= 2 && i === 0), i >= cots)));
 
     // --- Steam Garden ---
     const gar = L('garden');
-    if (!slot(g, 'mw_garden_' + gar)) ghost(g, gar > 0, (gh) => {
+    if (!slot(g, 'mw_garden_' + gar)) at(g, 'garden', () => ghost(g, gar > 0, (gh) => {
       const n = gh ? 2 : gar + 1;
       for (let i = 0; i < n; i++) {
         const [x, y] = BUSH_SPOTS[i];
@@ -459,11 +516,14 @@ function createWorldView(getState) {
         g.fillStyle = '#ffd3dd';
         circle(g, 324, 151, 8);
       }
-    });
+    }));
 
     // --- Hearth Well ---
     const hearth = L('hearth');
     if (slot(g, 'mw_hearth_' + hearth)) return;
+    g.translate(PLACE.hearth.to[0], PLACE.hearth.to[1]);
+    g.scale(PLACE.hearth.k, PLACE.hearth.k);
+    g.translate(-PLACE.hearth.from[0], -PLACE.hearth.from[1]);
     g.fillStyle = hearth ? '#8e86bd' : '#57527f';
     ellipse(g, 180, 265, 27, 8);
     g.fillStyle = hearth ? '#cfc8ee' : '#6b6596';
@@ -528,9 +588,10 @@ function createWorldView(getState) {
 
     // steam rising from the teapot's opening and spout
     if (Math.random() < dt * (3 + p * 6)) {
-      const spout = Math.random() < 0.25;
+      const art = has('mw_teapot_' + upgradeLevel(st, 'teapot'));
+      const spout = !art && Math.random() < 0.25; // the painted pots have their spout elsewhere
       steam.push({
-        x: spout ? 328 : 180 + (Math.random() - 0.5) * 60,
+        x: spout ? 328 : (art ? 184 : 180) + (Math.random() - 0.5) * (art ? 44 : 60),
         y: spout ? 342 : 336,
         vx: spout ? 8 : (Math.random() - 0.5) * 6,
         vy: -(10 + Math.random() * 12),
@@ -540,7 +601,8 @@ function createWorldView(getState) {
       });
     }
     if (upgradeLevel(st, 'garden') > 0 && Math.random() < dt * 3) {
-      steam.push({ x: 288, y: 178, vx: (Math.random() - 0.5) * 5, vy: -16, r: 3, life: 1, village: true });
+      const [gx, gy] = moved('garden', 288, 178);
+      steam.push({ x: gx, y: gy, vx: (Math.random() - 0.5) * 5, vy: -16, r: 3, life: 1, village: true });
     }
     for (let i = steam.length - 1; i >= 0; i--) {
       const s = steam[i];
@@ -579,8 +641,8 @@ function createWorldView(getState) {
     w.phase += dt * 0.9;
     w.hop = Math.max(0, w.hop - dt * 2.4);
     w.happy = Math.max(0, w.happy - dt);
-    w.x = 180 + Math.cos(w.phase) * 48;
-    w.y = 56 + Math.sin(w.phase * 2) * 9;
+    w.x = 180 + Math.cos(w.phase) * 78;
+    w.y = 84 + Math.sin(w.phase * 2) * 14;
   }
 
   function draw(ctx, W, H, px) {
@@ -602,10 +664,14 @@ function createWorldView(getState) {
     ctx.scale(geom.s, geom.s);
 
     // light inside the teapot
+    const potArt = has('mw_teapot_' + L('teapot'));
     additive(ctx, () => {
-      glow(ctx, 180, 340, 46 + Math.sin(t * 2) * 3, '#ffb347', 0.25 + L('hearth') * 0.12 + p * 0.25);
+      // a column of warm light rising from the pot to the village it holds up
+      const lift = 0.1 + p * 0.16 + Math.sin(t * 1.3) * 0.02;
+      for (let i = 0; i < 6; i++) glow(ctx, 183, 338 - i * 24, 46 + i * 9, '#ffd68c', lift * (1 - i / 6.5));
+      glow(ctx, potArt ? 184 : 180, 340, 46 + Math.sin(t * 2) * 3, '#ffb347', 0.25 + L('hearth') * 0.12 + p * 0.25);
       // gold seams shimmer
-      const tp = has('mw_teapot_' + L('teapot')) ? 0 : L('teapot');
+      const tp = potArt ? 0 : L('teapot');
       for (let i = 0; i < tp; i++) {
         const pts = CRACKS[i];
         const u = (((t * 0.35 + i * 0.3) % 1) + 1) % 1; // 0..1 even if t were negative
@@ -634,12 +700,15 @@ function createWorldView(getState) {
     // Where finished art fills a slot, its own glow layer replaces the
     // hand-placed lights (which sit on the code-drawn windows and lamps).
     const art = (id) => has(`mw_${id}_${L(id)}`);
-    const halo = (id, i) => slot(ctx, `mw_${id}_${L(id)}`, { glow: true, alpha: 0.82 + Math.sin(t * 2.6 + i * 1.7) * 0.18 });
+    // kept gentle: at full strength the halos bleach the buildings to flat yellow
+    const halo = (id, i) => slot(ctx, `mw_${id}_${L(id)}`, { glow: true, alpha: 0.34 + Math.sin(t * 2.6 + i * 1.7) * 0.08 });
     additive(ctx, () => {
       const hearth = L('hearth');
       if (art('hearth')) halo('hearth', 0);
-      else if (hearth) glow(ctx, 180, 244, 20 + hearth * 9 + Math.sin(t * 5) * 2, '#ffb347', 0.75);
-      else glow(ctx, 180, 246, 14, '#ffb347', 0.12 + Math.sin(t * 1.5) * 0.05);
+      else at(ctx, 'hearth', () => {
+        if (hearth) glow(ctx, 180, 244, 20 + hearth * 9 + Math.sin(t * 5) * 2, '#ffb347', 0.75);
+        else glow(ctx, 180, 246, 14, '#ffb347', 0.12 + Math.sin(t * 1.5) * 0.05);
+      });
       for (let i = 0; i < lamps.length; i++) {
         const [x, y, col] = lamps[i];
         glow(ctx, x, y, 11 + Math.sin(t * 3 + i * 1.7) * 1.6, col, 0.8);
@@ -647,15 +716,15 @@ function createWorldView(getState) {
       if (art('lanterns')) halo('lanterns', 1);
       const cots = L('cottages');
       if (art('cottages')) halo('cottages', 2);
-      else CUP_SPOTS.forEach(([x, y], i) => {
+      else at(ctx, 'cottages', () => CUP_SPOTS.forEach(([x, y], i) => {
         if (cots >= 3 || (cots >= 2 && i === 0)) glow(ctx, x + 5.5, y - 11, 9, '#ffe08a', 0.7);
-      });
+      }));
       const bell = L('belltower');
       if (art('belltower')) halo('belltower', 3);
-      else {
+      else at(ctx, 'belltower', () => {
         if (bell >= 2) glow(ctx, 180, 71, 12 + Math.sin(t * 2.2) * 2, '#ffcf5c', 0.55);
         if (bell >= 3) glow(ctx, 180, 90, 12, '#ffe08a', 0.8);
-      }
+      });
     });
 
     for (const s of steam) {
@@ -665,9 +734,10 @@ function createWorldView(getState) {
     }
 
     // puff-folk move in as cottages are raised
-    const folk = L('cottages') * 2;
+    // (code-drawn folk only: they do not match painted cottages)
+    const folk = art('cottages') ? 0 : L('cottages') * 2;
     for (let i = 0; i < folk; i++) {
-      const [x, y] = FOLK_SPOTS[i];
+      const [x, y] = moved('cottages', FOLK_SPOTS[i][0], FOLK_SPOTS[i][1]);
       const hop = Math.max(0, Math.sin(t * 2.2 + i * 1.9)) * 3;
       ctx.fillStyle = '#ffffff';
       circle(ctx, x, y - 3 - hop, 3.4);
@@ -686,9 +756,9 @@ function createWorldView(getState) {
       const y = c.y - hop;
       if (id !== 'whistlewing') {
         ctx.fillStyle = 'rgba(40,30,90,.18)';
-        ellipse(ctx, c.x, c.y + 10, 8 - hop * 0.3, 2.2);
+        ellipse(ctx, c.x, c.y + 15, 12 - hop * 0.4, 3);
       }
-      drawCreature(ctx, id, c.x, y, 0.92, t, { happy: c.happy > 0, flip: c.dir === -1 });
+      drawCreature(ctx, id, c.x, y, has(id + '_idle') ? CREATURE_SCALE : 1.05, t, { happy: c.happy > 0, flip: c.dir === -1 });
       [c.sx, c.sy] = toScreen(c.x, y, bob);
     }
 
@@ -715,11 +785,11 @@ function createWorldView(getState) {
     for (const id of ['whistlewing', 'sprigget', 'nimbit']) {
       const c = critters[id];
       if (!st.creatures[id]) continue;
-      if (Math.hypot(x - c.sx, y - c.sy) < 26 * geom.s + 6) {
+      if (Math.hypot(x - c.sx, y - c.sy) < 30 * geom.s + 8) {
         c.hop = 1;
         c.happy = 1.6;
         c.pause = 1.2;
-        for (let i = 0; i < 3; i++) hearts.push({ x: c.x + (i - 1) * 7, y: c.y - 14 - i * 3, life: 0.9 + i * 0.15 });
+        for (let i = 0; i < 3; i++) hearts.push({ x: c.x + (i - 1) * 9, y: c.y - 22 - i * 3, life: 0.9 + i * 0.15 });
         return id;
       }
     }

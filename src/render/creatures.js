@@ -180,11 +180,11 @@ function drawZzz(ctx, x, y, t) {
  * `silhouette` draws the undiscovered version.
  */
 function drawArtifact(ctx, id, x, y, s, silhouette = false) {
-  if (place(ctx, 'art_' + id, x, y, { scale: s, silhouette: silhouette ? '#3b3478' : null })) return;
+  if (place(ctx, 'art_' + id, x, y, { scale: s, silhouette: silhouette ? '#16525e' : null })) return;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
-  const c = (color) => (silhouette ? '#3b3478' : color);
+  const c = (color) => (silhouette ? '#16525e' : color);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   if (id === 'spoon') {

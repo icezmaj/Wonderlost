@@ -157,13 +157,13 @@ the right, Hearth Well on the lowest island in the middle.
 | `mw_backdrop` | 360 × 640 | 1440 × 2560 | Teal sky with soft haze, no objects. Opaque. Cropped to fit each phone, so keep the edges plain. |
 | `mw_desk` | 360 × 200 | 1440 × 800 | The surface the teapot stands on. The top edge is the horizon line. |
 | `mw_moon` | 40 × 40 | 211 × 211 | Porcelain moon, shown once the artifact set is complete. |
-| `mw_teapot_0`–`_3` | 296 × 144 | 1558 × 758 | Whole teapot: handle left, spout right, open top. 0: cracked, dull glaze. 1–3: cracks sealed one by one with seam gold, glaze warming. |
-| `mw_island` | 160 × 40 | 842 × 211 | One cloud island, reused for all four (shown faint under anything not yet built). |
-| `mw_hearth_0`–`_3` | 64 × 80 | 337 × 421 | Hearth Well. 0: cold and dark. 3: roofed and brimming with gold light. |
-| `mw_cottages_0`–`_3` | 110 × 70 | 579 × 368 | Cloud Cottages. 0: one sleepy hut. 3: a cluster of three with lit windows. |
-| `mw_lanterns_0`–`_3` | 240 × 160 | 1263 × 842 | Lantern Lane: every lantern string as one transparent overlay spanning the islands. 0: bare cords. 3: four full glowing strings. Use the Art slots outline to line the ends up with the islands. |
-| `mw_belltower_0`–`_3` | 60 × 96 | 316 × 506 | Bell Tower. 0: stump, no bell. 3: tall tower, gold bell, pointed drooping roof. |
-| `mw_garden_0`–`_3` | 100 × 50 | 526 × 263 | Steam Garden. 0: bare vents. 3: tea bushes and flowers around steaming vents. |
+| `mw_teapot_0`–`_3` | 300 × 146 | 1579 × 768 | Whole teapot: handle left, spout right, open top. 0: cracked, dull glaze. 1–3: cracks sealed one by one with seam gold, glaze warming. |
+| `mw_island` | 160 × 40 | 842 × 211 | One cloud island. Only drawn under a building that has no image yet, so every building image must include its own cloud base. |
+| `mw_hearth_0`–`_3` | 86 × 108 | 453 × 568 | Hearth Well. 0: cold and dark. 3: roofed and brimming with gold light. |
+| `mw_cottages_0`–`_3` | 136 × 86 | 716 × 453 | Cloud Cottages. 0: one sleepy hut. 3: a cluster of three with lit windows. |
+| `mw_lanterns_0`–`_3` | 250 × 170 | 1316 × 895 | Lantern Lane: every lantern string as one transparent overlay spanning the islands. 0: bare cords. 3: four full glowing strings. Use the Art slots outline to line the ends up with the islands. |
+| `mw_belltower_0`–`_3` | 78 × 124 | 411 × 653 | Bell Tower. 0: stump, no bell. 3: tall tower, gold bell, pointed drooping roof. |
+| `mw_garden_0`–`_3` | 128 × 64 | 674 × 337 | Steam Garden. 0: bare vents. 3: tea bushes and flowers around steaming vents. |
 | `mw_fore_mist` | 360 × 90 | 1440 × 360 | Soft mist band in front of the teapot's foot. |
 | `mw_hearth_1`–`_3_glow`, `mw_cottages_…_glow`, `mw_lanterns_…_glow`, `mw_belltower_…_glow` | 2× parent | 2× parent | One glow layer for each of stages 1–3 of these four buildings. |
 
@@ -171,8 +171,7 @@ the right, Hearth Well on the lowest island in the middle.
 
 ### 8.2 Creatures
 
-Four files each, 384 × 384 px. They appear small in the village (about 28
-units) and large on their journal cards, so they must read at both sizes.
+Four files each, 384 × 384 px. They appear at about 44 units in the village and large on their journal cards, so they must read at both sizes.
 
 | Files | Creature | Notes |
 |---|---|---|
