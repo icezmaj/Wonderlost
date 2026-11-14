@@ -1,0 +1,28 @@
+name: Wonderlost browser playability
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  playability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install lightweight browser driver
+        run: npm install --no-save playwright-core
+      - name: Check generated build is synchronized
+        run: |
+          node tools/build.js
+          git diff --exit-code -- docs/index.html dist/wonderlost.html
+      - name: Test actual Chrome gameplay
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node tools/browser-smoke.js
+      - name: Save test screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wonderlost-browser-smoke
+          path: wonderlost-*.png
+          if-no-files-found: ignore
