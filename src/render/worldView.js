@@ -608,8 +608,8 @@ function createWorldView(getState) {
       const tp = has('mw_teapot_' + L('teapot')) ? 0 : L('teapot');
       for (let i = 0; i < tp; i++) {
         const pts = CRACKS[i];
-        const u = (t * 0.35 + i * 0.3) % 1;
-        const seg = Math.min(pts.length - 2, Math.floor(u * (pts.length - 1)));
+        const u = (((t * 0.35 + i * 0.3) % 1) + 1) % 1; // 0..1 even if t were negative
+        const seg = Math.max(0, Math.min(pts.length - 2, Math.floor(u * (pts.length - 1))));
         const f = u * (pts.length - 1) - seg;
         const x = pts[seg][0] + (pts[seg + 1][0] - pts[seg][0]) * f;
         const y = pts[seg][1] + (pts[seg + 1][1] - pts[seg][1]) * f;

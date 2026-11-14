@@ -1,11 +1,16 @@
 // Browser regression test for the GitHub Pages build.
 // Usage: npm install --no-save playwright-core && node tools/browser-smoke.js
-const { chromium } = require('playwright-core');
+let chromium;
+try {
+  ({ chromium } = require('playwright-core'));
+} catch (err) {
+  ({ chromium } = require('playwright'));
+}
 const path = require('node:path');
 
 (async () => {
   const browser = await chromium.launch({
-    executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
+    executablePath: process.env.CHROME_PATH || (require('node:fs').existsSync('/usr/bin/google-chrome') ? '/usr/bin/google-chrome' : undefined),
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage']
   });
@@ -61,37 +66,73 @@ const path = require('node:path');
     await page.locator('#b-dive').click();
     await page.waitForFunction(() => window.__wonderlost.app.screen === 'dive', null, { timeout: 10000 });
 
-    // The deployed Pages URL must load, not just the checked-in local HTML.
-    await page.goto('https://icezmaj.github.io/Wonderlost/?smoke=' + Date.now(), { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
-    console.log('Public GitHub Pages: title loaded successfully');
-    // Returning-player regression: an existing save must open Home instead of
-    // forcing the first-time tutorial or leaving a non-interactive screen.
-    await page.locator('#b-begin').click();
-    await page.waitForFunction(() => window.__wonderlost.app.screen === 'dive', null, { timeout: 15000 });
-    await page.evaluate(() => {
-      window.__wonderlost.app.state.stats.dives = 1;
-      window.__wonderlost.app.goHome();
-    });
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
-    await page.locator('#b-begin').click();
-    await page.waitForFunction(() => window.__wonderlost.app.screen === 'home', null, { timeout: 15000 });
-    await page.waitForFunction(() => !document.getElementById('wipe').classList.contains('on'), null, { timeout: 5000 });
-    await page.screenshot({ path: 'wonderlost-desktop-returning.png' });
-    console.log('Public Pages existing save: returned to Home on desktop successfully');
-    // Non-destructive rescue mode must keep the game accessible if art fails.
-    const classic = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    try {
-      await classic.goto('https://icezmaj.github.io/Wonderlost/?classic', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await classic.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
-      await classic.locator('#b-begin').click();
-      await classic.waitForFunction(() => window.__wonderlost.app.screen === 'dive', null, { timeout: 15000 });
-      console.log('Classic-art rescue mode: first dive started');
-    } finally { await classic.close(); }
+    // Regression: a returning player who has mended the teapot once froze the
+    // game, because the first frame could run with a negative time step and
+    // the seam-shimmer code crashed, killing the frame loop. Force that timing.
+    for (const query of ['', '?classic']) {
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      const back = await ctx.newPage();
+      back.on('pageerror', error => errors.push('returning player' + query + ': ' + (error.stack || error)));
+      await back.addInitScript(() => {
+        const real = performance.now.bind(performance);
+        performance.now = () => real() + 100;
+      });
+      const url = 'file://' + path.resolve(__dirname, '../docs/index.html') + query;
+      await back.goto(url, { waitUntil: 'load' });
+      await back.waitForFunction(() => window.__wonderlost?.app, null, { timeout: 15000 });
+      await back.evaluate(() => {
+        const a = window.__wonderlost.app;
+        a.state.stats.dives = 3;
+        a.state.upgrades = { teapot: 2, hearth: 1, cottages: 1 };
+        a.save();
+      });
+      await back.reload({ waitUntil: 'load' });
+      await back.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
+      await back.waitForTimeout(800);
+      const f1 = await back.evaluate(() => window.__wonderlost.frames());
+      await back.locator('#b-begin').click();
+      await back.waitForFunction(() => window.__wonderlost.app.screen === 'home', null, { timeout: 15000 });
+      await back.waitForTimeout(800);
+      const alive = await back.evaluate(() => ({ frames: window.__wonderlost.frames(), errors: window.__wonderlost.frameErrors() }));
+      if (alive.frames <= f1 || alive.errors) throw new Error('Returning player' + query + ': game stopped animating ' + JSON.stringify(alive));
+      await ctx.close();
+    }
+    console.log('Returning player with upgrades: game keeps animating (with art and ?classic)');
+
+    // Optional: also check the deployed site. Off by default, because on a push
+    // the live site still serves the previous build until Pages finishes deploying.
+    if (process.env.CHECK_LIVE) {
+      await page.goto('https://icezmaj.github.io/Wonderlost/?smoke=' + Date.now(), { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
+      console.log('Public GitHub Pages: title loaded successfully');
+      // Returning-player regression: an existing save must open Home instead of
+      // forcing the first-time tutorial or leaving a non-interactive screen.
+      await page.locator('#b-begin').click();
+      await page.waitForFunction(() => window.__wonderlost.app.screen === 'dive', null, { timeout: 15000 });
+      await page.evaluate(() => {
+        window.__wonderlost.app.state.stats.dives = 1;
+        window.__wonderlost.app.goHome();
+      });
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
+      await page.locator('#b-begin').click();
+      await page.waitForFunction(() => window.__wonderlost.app.screen === 'home', null, { timeout: 15000 });
+      await page.waitForFunction(() => !document.getElementById('wipe').classList.contains('on'), null, { timeout: 5000 });
+      await page.screenshot({ path: 'wonderlost-desktop-returning.png' });
+      console.log('Public Pages existing save: returned to Home on desktop successfully');
+      // Non-destructive rescue mode must keep the game accessible if art fails.
+      const classic = await browser.newPage({ viewport: { width: 390, height: 844 } });
+      try {
+        await classic.goto('https://icezmaj.github.io/Wonderlost/?classic', { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await classic.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
+        await classic.locator('#b-begin').click();
+        await classic.waitForFunction(() => window.__wonderlost.app.screen === 'dive', null, { timeout: 15000 });
+        console.log('Classic-art rescue mode: first dive started');
+      } finally { await classic.close(); }
+    }
     if (errors.length) throw new Error('Browser errors:\\n' + errors.join('\\n'));
-    console.log('PASS: local title, dive, aim, home, Restore, second dive and public Pages launch.');
+    console.log('PASS: title, dive, aim, home, Restore, second dive and returning player.');
   } finally {
     await browser.close();
   }

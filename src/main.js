@@ -174,8 +174,10 @@ document.addEventListener('visibilitychange', () => {
 
 // ------------------------------------------------------------ frame loop
 
-let last = performance.now();
+let last = null; // timestamp of the previous frame
 let clock = 0;
+let frames = 0;
+let frameErrors = 0;
 
 function titleVeil() {
   const { W, H } = view;
@@ -198,22 +200,32 @@ function titleVeil() {
 }
 
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  // Time never runs backwards: the first frame's timestamp can be earlier
+  // than "now" was when the script started, and animation code assumes t >= 0.
+  const dt = last === null ? 0 : Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
   clock += dt;
-  setSlotDebug(slotsFromUrl || app.state.settings.artSlots);
-  ctx.setTransform(view.px, 0, 0, view.px, 0, 0);
-  if (app.screen === 'dive') {
-    dive.update(dt);
-    dive.draw(ctx, view.W, view.H, view.px);
-  } else {
-    app.world.update(dt);
-    app.world.draw(ctx, view.W, view.H, view.px);
-    if (app.screen === 'title') titleVeil();
+  frames++;
+  // One bad frame must never stop the game: always schedule the next one.
+  try {
+    setSlotDebug(slotsFromUrl || app.state.settings.artSlots);
+    ctx.setTransform(view.px, 0, 0, view.px, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    if (app.screen === 'dive') {
+      dive.update(dt);
+      dive.draw(ctx, view.W, view.H, view.px);
+    } else {
+      app.world.update(dt);
+      app.world.draw(ctx, view.W, view.H, view.px);
+      if (app.screen === 'title') titleVeil();
+    }
+  } catch (err) {
+    if (frameErrors++ < 5) console.error('[frame]', err);
   }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
 // Handy for playtests and automated checks; not used by the game itself.
-window.__wonderlost = { app, view };
+window.__wonderlost = { app, view, frames: () => frames, frameErrors: () => frameErrors };
