@@ -24,14 +24,20 @@ function createDiveController(app) {
     if (practice) ensureHollow(s);
     else if (!startDive(s, now).ok) return false;
     const mods = modsOf(s);
-    sim = createDive(buildLevel(s.hollow, mods), mods);
+    sim = createDive(buildLevel(s.hollow, mods, worldOf(s).dive), mods);
     view.begin(sim, (TRAILS[s.trail] || TRAILS.default).colors, s.settings.reducedMotion);
     d = { practice, pointer: null, aim: null, acc: 0, ended: 0, settled: false, teach: false, hintUntil: 0, first: s.stats.dives === 0 && !practice };
     track('action_spent', { hollow: s.hollow.index, sparks_left: s.sparks, practice });
     if (!practice && s.sparks === 0) track('sparks_depleted', { next_in: T.sparkRegenSec });
     app.save();
     app.ui.showDive(sim, practice);
-    app.ui.hint(d.first ? 'Touch and drag to aim. Let go to drop your Spark.' : null);
+    let hint = d.first ? 'Touch and drag to aim. Let go to drop your Spark.' : null;
+    // the first time a spinning cog appears, say what it does
+    if (!hint && !s.flags.cogs && sim.ents.some((e) => e.kind === 'cog')) {
+      s.flags.cogs = true;
+      hint = 'New: spinning cogs fling your Spark the way they turn.';
+    }
+    app.ui.hint(hint);
     return true;
   }
 
@@ -45,6 +51,7 @@ function createDiveController(app) {
         sfx.lantern();
         break;
       case 'bumper':
+      case 'cog':
         sfx.bumper(ev.chain % 7);
         break;
       case 'thud':
@@ -60,7 +67,7 @@ function createDiveController(app) {
       case 'creature': {
         sfx.creature();
         const def = worldOf(app.state).creatures.find((c) => c.id === ev.creature);
-        view.pop(ev.x, ev.y - 30, def.name + ' woke up!', '#cfe8ff', 16, 1.5);
+        if (def) view.pop(ev.x, ev.y - 30, def.name + ' woke up!', '#cfe8ff', 16, 1.5);
         break;
       }
       case 'relic':

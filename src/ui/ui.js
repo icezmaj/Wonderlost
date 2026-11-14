@@ -12,6 +12,7 @@ import { createSheets } from './sheets.js';
 import { createReward } from './reward.js';
 import { sfx } from '../audio/audio.js';
 import { track } from '../analytics/analytics.js';
+import { WORLDS } from '../config/worlds.js';
 
 function createUi(app) {
   const root = document.getElementById('ui');
@@ -22,7 +23,7 @@ function createUi(app) {
         <h1 class="logo">Wonder<span>lost</span></h1>
       </div>
       <div class="title-bottom">
-        <p class="case-line"><b>Case 001</b> · A cracked teapot<small>Something inside it is still warm.</small></p>
+        <p class="case-line" id="t-case"></p>
         <button class="btn btn-xl" id="b-begin">Open the case</button>
         <p class="fine">Prototype ${T.version} · progress saves on this device</p>
       </div>
@@ -141,7 +142,9 @@ function createUi(app) {
     const wait = nextSparkIn(s, now);
     $('h-spark-t').textContent = wait > 0 ? fmtTime(wait) : '';
 
-    $('h-world').textContent = worldOf(s).name;
+    const world = worldOf(s);
+    $('h-world').textContent = world.name;
+    $('t-case').innerHTML = `<b>Case ${world.caseNo}</b> · ${world.object}<small>${world.titleLine}</small>`;
     const pct = Math.round(restoration(s) * 100);
     $('h-restored').textContent = pct >= 100 ? 'Fully restored' : pct + '% restored';
 
@@ -151,6 +154,11 @@ function createUi(app) {
     if (!cp) {
       chip.className = 'chip closed';
       chip.innerHTML = `<span class="chip-kicker">Case files</span><span class="chip-text">All cases closed. New ones arrive with the next world.</span>`;
+    } else if (cp.locked) {
+      // the next case belongs to a world that is not open yet: say what opens it
+      const n = cp.locked.need;
+      chip.className = 'chip closed';
+      chip.innerHTML = `<span class="chip-kicker">Next case · ${cp.locked.world.name}</span><span class="chip-text">Restore ${n} more thing${n === 1 ? '' : 's'} in ${cp.locked.gate.name} to open ${cp.locked.world.dive.into}.</span>`;
     } else {
       chip.className = 'chip' + (cp.done ? ' done' : '');
       chip.innerHTML = `
@@ -216,6 +224,10 @@ function createUi(app) {
   const sheets = createSheets(app, { toast, refresh, root });
   const reward = createReward(app, { root, toast });
 
+  {
+    const w = worldOf(app.state);
+    $('t-case').innerHTML = `<b>Case ${w.caseNo}</b> · ${w.object}<small>${w.titleLine}</small>`;
+  }
   $('b-begin').addEventListener('click', () => app.begin());
   $('b-dive').addEventListener('click', () => {
     sfx.tap();
@@ -228,6 +240,7 @@ function createUi(app) {
   $('b-case').addEventListener('click', () => {
     const cp = caseProgress(app.state);
     if (!cp) return;
+    if (cp.locked) return sheets.open('restore');
     if (cp.done) {
       const c = claimCase(app.state);
       sfx.claim();
@@ -239,7 +252,9 @@ function createUi(app) {
       sheets.open(cp.c.nudge);
     } else {
       sfx.tap();
-      toast('Dive into the teapot to work on this case.');
+      const here = worldOf(app.state);
+      if (cp.c.world && cp.c.world !== here.id) toast(`This case is in <b>${WORLDS[cp.c.world].name}</b>. Tap it on the desk to travel there.`);
+      else toast(`Dive into ${here.dive.into} to work on this case.`);
     }
   });
 

@@ -4,12 +4,12 @@
 import { safeStorage, load, save, reset } from './persistence/save.js';
 import { initAnalytics, track, flushAnalytics } from './analytics/analytics.js';
 import { initAudio, resumeAudio, sfx } from './audio/audio.js';
-import { newState, regenSparks, restoration } from './progression/state.js';
-import { petCreature } from './progression/actions.js';
+import { newState, regenSparks, restoration, unlockNeed } from './progression/state.js';
+import { petCreature, travel } from './progression/actions.js';
+import { WORLDS, COMING_SOON } from './config/worlds.js';
 import { refreshDaily } from './progression/objectives.js';
 import { refreshEvent } from './progression/events.js';
 import { createWorldView } from './render/worldView.js';
-import { COMING_SOON } from './config/worlds.js';
 import { glow, additive } from './render/gfx.js';
 import { loadAssets, setSlotDebug, has } from './render/assets.js';
 import { createDiveController } from './game/diveController.js';
@@ -75,6 +75,28 @@ const app = {
       app.ui.toast('Glow restores the village. Collect your case reward, then tap <b>Restore</b>.');
     }
     app.save();
+  },
+
+  /** Move to another open world: a fade, then that world's home scene. */
+  travel(worldId) {
+    if (app.screen !== 'home') return;
+    const need = unlockNeed(app.state, worldId);
+    const world = WORLDS[worldId];
+    if (!world || worldId === app.state.worldId) return;
+    if (need) {
+      const gate = WORLDS[world.unlock.world];
+      app.ui.toast(`<b>Case ${world.caseNo} · ${world.name}</b> Restore ${need} more thing${need === 1 ? '' : 's'} in ${gate.name} to open it.`);
+      return;
+    }
+    app.ui.closeSheet();
+    app.ui.wipe(() => {
+      const r = travel(app.state, worldId);
+      if (!r.ok) return;
+      track('world_travel', { world: worldId, first: r.first });
+      app.world.invalidate();
+      app.goHome();
+      app.ui.toast(r.first ? `<b>Case ${world.caseNo} · ${world.name}</b> ${world.tagline}` : `Back in <b>${world.name}</b>`, r.first ? 'good' : '');
+    });
   },
 
   resetProgress() {
@@ -151,10 +173,14 @@ stage.addEventListener('pointerdown', (e) => {
       app.save();
       app.ui.refresh();
     } else {
-      const next = COMING_SOON[app.world.tapTeaser(x, y)];
-      if (next) {
+      const tz = app.world.tapTeaser(x, y);
+      if (tz) {
         sfx.tap();
-        app.ui.toast(`<b>${next.name}</b> · ${next.object}. This case opens in a later update.`);
+        if (tz.world) app.travel(tz.world);
+        else {
+          const next = COMING_SOON[tz.soon];
+          app.ui.toast(`<b>${next.name}</b> · ${next.object}. This case opens in a later update.`);
+        }
       }
     }
   }

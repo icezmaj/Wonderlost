@@ -10,6 +10,7 @@ import { has, place, cover, assetVersion } from './assets.js';
 import { FIELD } from '../sim/diveSim.js';
 import { TUNING as T } from '../config/tuning.js';
 import { mulberry32 } from '../core/rng.js';
+import { gear } from './tocktownScene.js';
 
 function createDiveView() {
   const fx = new Particles(320);
@@ -28,6 +29,7 @@ function createDiveView() {
   let awake = 0; // eased fraction of lanterns lit
   let endGlow = 0;
   let reduced = false; // accessibility: no shake, softer flashes
+  let theme = 'mist'; // which world's hollow this is: 'mist' (Mistlewick) or 'brass' (Tocktown)
 
   function fit(W, H) {
     geom.W = W;
@@ -43,6 +45,7 @@ function createDiveView() {
 
   function begin(sim, trailColors, reducedMotion) {
     reduced = !!reducedMotion;
+    theme = sim.level.theme || 'mist';
     fx.clear();
     pops.clear();
     pulses.clear();
@@ -63,6 +66,7 @@ function createDiveView() {
     bg.height = Math.round(H * px);
     const g = bg.getContext('2d');
     g.scale(px, px);
+    if (theme === 'brass') return buildBrassBg(g, W, H, seed);
     if (cover(g, 'dive_backdrop', W, H)) return;
     const sky = g.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, '#1a1550');
@@ -110,6 +114,61 @@ function createDiveView() {
     }
   }
 
+  /** Inside the pocket watch: midnight blue, a faint dial, and wheels turning far off. */
+  function buildBrassBg(g, W, H, seed) {
+    const sky = g.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#0b1230');
+    sky.addColorStop(0.45, '#1f2a62');
+    sky.addColorStop(0.8, '#4a3566');
+    sky.addColorStop(1, '#2a1d44');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, W, H);
+    g.translate(geom.x0, geom.y0);
+    g.scale(geom.fs, geom.fs);
+    additive(g, () => {
+      glow(g, 180, -40, 260, '#f5c66e', 0.22);
+      glow(g, 180, 640, 300, '#ff9d6b', 0.16);
+    });
+    // the dial: a ring of hour marks the hollow is laid out on
+    g.strokeStyle = 'rgba(245,198,110,.2)';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.arc(180, 316, 164, 0, Math.PI * 2);
+    g.stroke();
+    g.lineCap = 'round';
+    for (let h = 0; h < 12; h++) {
+      const a = (h / 12) * Math.PI * 2;
+      const big = h % 3 === 0;
+      g.strokeStyle = `rgba(245,198,110,${big ? 0.3 : 0.18})`;
+      g.lineWidth = big ? 3 : 1.6;
+      g.beginPath();
+      g.moveTo(180 + Math.cos(a) * (big ? 144 : 150), 316 + Math.sin(a) * (big ? 144 : 150));
+      g.lineTo(180 + Math.cos(a) * 160, 316 + Math.sin(a) * 160);
+      g.stroke();
+    }
+    // far wheels of the movement
+    const rng = mulberry32(seed);
+    for (let i = 0; i < 7; i++) {
+      const r = 26 + rng() * 44;
+      gear(g, rng() * 360, 80 + rng() * 500, r, rng() * 6, `rgba(245,198,110,${0.035 + rng() * 0.04})`, 'rgba(245,198,110,.03)');
+    }
+    // the case walls curving in at the sides
+    for (const side of [-1, 1]) {
+      const cx = side < 0 ? -322 : 682;
+      g.fillStyle = 'rgba(248,215,137,.07)';
+      circle(g, cx, 330, 350);
+      g.strokeStyle = 'rgba(245,185,66,.34)';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(cx, 330, 350, 0, Math.PI * 2);
+      g.stroke();
+    }
+    for (let i = 0; i < 26; i++) {
+      g.fillStyle = `rgba(255,224,160,${0.12 + rng() * 0.25})`;
+      circle(g, rng() * 360, 380 + rng() * 200, 0.7 + rng() * 0.9);
+    }
+  }
+
   // ------------------------------------------------------------ events -> effects
 
   function pop(x, y, text, color, size, life) {
@@ -137,6 +196,12 @@ function createDiveView() {
         fx.emit(x, y, { n: 12, color: ['#ff8fa3', '#ffd3dd', '#ffcf5c'], speed: [50, 170], life: [0.3, 0.7], size: [2, 4] });
         pop(x, y - 26, '+' + ev.value, '#ffd3dd', 13, 0.7);
         shake = Math.max(shake, 0.2);
+        break;
+      case 'cog':
+        pulses.set(ev.id, 1);
+        fx.emit(x, y, { n: 14, color: ['#f5b942', '#fff3c4', '#f8d789'], speed: [60, 200], life: [0.3, 0.7], size: [2, 4] });
+        pop(x, y - 28, '+' + ev.value, '#f8d789', 13, 0.7);
+        shake = Math.max(shake, 0.22);
         break;
       case 'thud':
         pulses.set(ev.id, 0.5);
@@ -249,18 +314,24 @@ function createDiveView() {
       g.stroke();
       return;
     }
-    g.strokeStyle = '#c9a6c4';
+    g.strokeStyle = theme === 'brass' ? '#8a5a2a' : '#c9a6c4';
     g.lineWidth = 13;
     g.beginPath();
     g.moveTo(s.x1, s.y1 + 3);
     g.lineTo(s.x2, s.y2 + 3);
     g.stroke();
-    g.strokeStyle = '#fff4dc';
+    g.strokeStyle = theme === 'brass' ? '#f0c66e' : '#fff4dc';
     g.lineWidth = 10;
     g.beginPath();
     g.moveTo(s.x1, s.y1);
     g.lineTo(s.x2, s.y2);
     g.stroke();
+    if (theme === 'brass') {
+      // a brass rail with rivets instead of a cloud
+      g.fillStyle = '#a8742a';
+      for (let k = 0.15; k < 1; k += 0.35) circle(g, s.x1 + (s.x2 - s.x1) * k, s.y1 + (s.y2 - s.y1) * k, 1.8);
+      return;
+    }
     g.fillStyle = '#fff4dc';
     for (let k = 0.2; k < 1; k += 0.3) circle(g, s.x1 + (s.x2 - s.x1) * k, s.y1 + (s.y2 - s.y1) * k - 3, 6.5);
   }
@@ -318,7 +389,12 @@ function createDiveView() {
         for (let k = 0; k < T.bumperCharges - e.hits; k++) circle(g, e.x - 5 + k * 5, e.y + 4, 1.4);
       } else if (e.kind === 'lantern') {
         const lit = sim.lit[e.li];
-        if (place(g, lit ? 'lantern_on' : 'lantern_off', e.x, e.y - 1)) continue;
+        if (theme !== 'brass' && place(g, lit ? 'lantern_on' : 'lantern_off', e.x, e.y - 1)) continue;
+        // code-drawn lamp, enlarged to fill its hit area
+        g.save();
+        g.translate(e.x, e.y);
+        g.scale(1.4, 1.4);
+        g.translate(-e.x, -e.y);
         g.strokeStyle = lit ? '#b86a0c' : '#3a3166';
         g.lineWidth = 1.6;
         g.beginPath();
@@ -345,6 +421,23 @@ function createDiveView() {
         g.moveTo(e.x + 3, e.y - 9);
         g.lineTo(e.x + 3, e.y + 9);
         g.stroke();
+        g.restore();
+      } else if (e.kind === 'cog') {
+        // a spinning cog: it turns the way it will throw the Spark
+        const charged = e.hits < T.bumperCharges;
+        const sc = 1 + pulse * 0.2;
+        const a = charged ? t * 1.7 * e.dir + pulse * e.dir : 0.4;
+        gear(g, e.x, e.y + 1.5, e.r * 1.12 * sc, a, charged ? '#a8742a' : '#5f5a7c', charged ? '#a8742a' : '#5f5a7c');
+        gear(g, e.x, e.y, e.r * 1.12 * sc, a, charged ? '#f0b84a' : '#8a86b3', charged ? '#fff0c0' : '#a9a5c8');
+        // an arrow on the hub shows which way it spins
+        g.strokeStyle = charged ? '#7a2f3f' : '#5f5a7c';
+        g.lineWidth = 1.6;
+        g.lineCap = 'round';
+        g.beginPath();
+        g.arc(e.x, e.y, e.r * 0.2, e.dir > 0 ? -2.2 : -0.9, e.dir > 0 ? 0.6 : -3.8, e.dir < 0);
+        g.stroke();
+        g.fillStyle = '#a8742a';
+        for (let k = 0; k < T.bumperCharges - e.hits; k++) circle(g, e.x - 5 + k * 5, e.y + e.r * 0.58, 1.5);
       } else if (e.kind === 'geyser') {
         const live = e.hits < T.geyserCharges;
         if (place(g, 'geyser_vent', e.x, e.y + 8, { w: e.w, alpha: live ? 1 : 0.45 })) continue;
@@ -394,7 +487,7 @@ function createDiveView() {
     // the spout the Spark drops from
     const L = lvl.launcher;
     if (place(g, 'dive_spout', L.x, L.y - 48)) return;
-    g.fillStyle = '#d98a9e';
+    g.fillStyle = theme === 'brass' ? '#a8742a' : '#d98a9e';
     g.beginPath();
     g.moveTo(L.x - 30, -30);
     g.lineTo(L.x + 30, -30);
@@ -402,7 +495,7 @@ function createDiveView() {
     g.lineTo(L.x - 15, L.y - 10);
     g.closePath();
     g.fill();
-    g.fillStyle = '#f7c1cb';
+    g.fillStyle = theme === 'brass' ? '#e7ae4a' : '#f7c1cb';
     g.beginPath();
     g.moveTo(L.x - 30, -30);
     g.lineTo(L.x + 12, -30);
@@ -453,7 +546,7 @@ function createDiveView() {
       if (e.kind === 'lantern' && sim.lit[e.li]) hole(e.x, e.y, 120);
       else if (e.kind === 'lantern') hole(e.x, e.y, 46);
       else if ((e.kind === 'relic' || e.kind === 'bubble') && e.alive) hole(e.x, e.y, 48);
-      else if (e.kind === 'bumper') hole(e.x, e.y, 40);
+      else if (e.kind === 'bumper' || e.kind === 'cog') hole(e.x, e.y, 42);
       else if (e.kind === 'geyser') hole(e.x, e.y - 4, 44);
     }
     for (const s of sim.level.segments) hole((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2, 48);
@@ -484,12 +577,14 @@ function createDiveView() {
           glow(g, e.x, by, 3.4, '#ffffff', 1);
         } else if (e.kind === 'lantern' && sim.lit[e.li]) {
           const p = pulses.get('L' + Math.round(e.x) + '_' + Math.round(e.y)) || 0;
-          if (has('lantern_on_glow')) place(g, 'lantern_on', e.x, e.y - 1, { glow: true, scale: 1 + p * 0.5, alpha: 0.7 + p * 0.3 + Math.sin(t * 3 + e.id) * 0.06 });
+          if (theme !== 'brass' && has('lantern_on_glow')) place(g, 'lantern_on', e.x, e.y - 1, { glow: true, scale: 1 + p * 0.5, alpha: 0.7 + p * 0.3 + Math.sin(t * 3 + e.id) * 0.06 });
           else glow(g, e.x, e.y, 44 + p * 40 + Math.sin(t * 3 + e.id) * 3, '#ffcf5c', 0.6 + p * 0.4);
         } else if (e.kind === 'lantern') {
           glow(g, e.x, e.y, 26, '#b9a6ff', 0.3 + Math.sin(t * 2 + e.id) * 0.12);
         } else if (e.kind === 'relic') {
           glow(g, e.x, e.y, 24 + Math.sin(t * 3) * 3, '#ffcf5c', 0.5);
+        } else if (e.kind === 'cog' && pulses.get(e.id)) {
+          glow(g, e.x, e.y, e.r * 2.8, '#f5b942', pulses.get(e.id) * 0.8);
         } else if (e.kind === 'bumper' && pulses.get(e.id)) {
           glow(g, e.x, e.y, e.r * 2.6, '#ff8fa3', pulses.get(e.id) * 0.8);
         } else if (e.kind === 'geyser' && e.hits < T.geyserCharges) {

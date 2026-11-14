@@ -534,3 +534,7 @@ body {
   .hint, #ui .chip.done, #ui .pulse, .pill.bump, .rcard, .toast { animation: none; }
   .sheet.in, .bar i { transition: none; }
 }
+
+/* a world you can travel to, in the "also on the desk" list */
+.soon-row.go { flex-direction: row; align-items: center; justify-content: space-between; gap: 0.8em; }
+.soon-row.go > span { display: flex; flex-direction: column; min-width: 0; }

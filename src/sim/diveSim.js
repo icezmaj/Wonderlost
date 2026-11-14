@@ -11,7 +11,6 @@ import { TUNING as T } from '../config/tuning.js';
 const FIELD = { w: 360, h: 640 };
 const STEP = 1 / 120;
 
-const CHAIN_TICKS = Math.round(T.chainWindow / STEP);
 const SETTLE_TICKS = Math.round(T.settleSeconds / STEP);
 const MAX_TICKS = Math.round(T.maxDiveSeconds / STEP);
 
@@ -33,7 +32,9 @@ function createDive(level, mods = {}) {
     phase: 'aim', // 'aim' -> 'fly' -> 'done'
     outcome: null, // 'home' | 'mist' | 'fizzle'
     spark: { x: level.launcher.x, y: level.launcher.y, vx: 0, vy: 0, r: T.sparkRadius },
-    hearthW: level.hearth.w * (mods.hearthScale || 1),
+    hearthW: level.hearth.w * Math.min(T.hearthMaxScale, (mods.hearthScale || 1) * (1 + (mods.hearthGrow || 0))),
+    chainMax: Math.round((T.chainWindow + (mods.chainWindow || 0) + (mods.chainBonus || 0)) / STEP),
+    cogHits: 0,
     rekindles: T.baseRekindles + (mods.extraRekindles || 0),
     rekindlesUsed: 0,
     chain: 0,
@@ -80,7 +81,7 @@ function rekindle(sim, angle) {
   sim.rekindlesUsed++;
   sim.spark.vx = Math.cos(angle) * T.dashSpeed;
   sim.spark.vy = Math.sin(angle) * T.dashSpeed;
-  if (sim.chain > 0) sim.chainTicks = CHAIN_TICKS;
+  if (sim.chain > 0) sim.chainTicks = sim.chainMax;
   sim.stillTicks = 0;
   sim.inputs.push({ tick: sim.tick, kind: 'rekindle', angle });
   sim.events.push({ type: 'rekindle', x: sim.spark.x, y: sim.spark.y });
@@ -89,7 +90,7 @@ function rekindle(sim, angle) {
 
 function gather(sim, base, x, y, kind) {
   sim.chain++;
-  sim.chainTicks = CHAIN_TICKS;
+  sim.chainTicks = sim.chainMax;
   if (sim.chain > sim.bestChain) sim.bestChain = sim.chain;
   const tier = tierOf(sim.chain);
   if (tier !== sim.tier) {
@@ -259,7 +260,29 @@ function step(sim) {
         }
         e.hits++;
         sim.bumperHits++;
-        gather(sim, T.bumperValue + (m.bumperValue || 0), e.x, e.y, 'bumper');
+        gather(sim, T.bumperValue + (m.bumperValue || 0) + (m.bounceBonus || 0), e.x, e.y, 'bumper');
+        sim.events[sim.events.length - 1].id = e.id;
+      } else {
+        sim.events.push({ type: 'thud', x: e.x, y: e.y, id: e.id });
+      }
+    } else if (e.kind === 'cog') {
+      // A spinning cog: bounces like a bell bloom, and while it still has
+      // charge it also throws the Spark sideways, the way it is turning.
+      const n = hitCircle(s, e.x, e.y, e.r);
+      if (!n) continue;
+      const vn = s.vx * n.nx + s.vy * n.ny;
+      if (vn >= 0) continue;
+      const charged = e.hits < T.bumperCharges;
+      const rest = charged ? 0.9 : T.bumperSpentRest;
+      s.vx -= (1 + rest) * vn * n.nx;
+      s.vy -= (1 + rest) * vn * n.ny;
+      if (charged) {
+        s.vx += -n.ny * e.dir * T.cogFling;
+        s.vy += n.nx * e.dir * T.cogFling;
+        e.hits++;
+        sim.cogHits++;
+        sim.bumperHits++;
+        gather(sim, T.cogValue + (m.bumperValue || 0) + (m.bounceBonus || 0), e.x, e.y, 'cog');
         sim.events[sim.events.length - 1].id = e.id;
       } else {
         sim.events.push({ type: 'thud', x: e.x, y: e.y, id: e.id });
@@ -320,6 +343,7 @@ function summarize(sim) {
     bestChain: sim.bestChain,
     motes: sim.motes,
     bumperHits: sim.bumperHits,
+    cogHits: sim.cogHits,
     lit: sim.lit.slice(),
     lanternsLitNow: sim.lanternsLitNow.length,
     gotRelic: sim.gotRelic,
@@ -355,7 +379,7 @@ function previewPath(level, x, y, vx, vy, maxTicks = 150) {
       if ((s.x - seg.x1 - dx * t) ** 2 + (s.y - seg.y1 - dy * t) ** 2 < R * R) hit = true;
     }
     for (const e of level.ents) {
-      if (e.kind === 'bumper' && (s.x - e.x) ** 2 + (s.y - e.y) ** 2 < (s.r + e.r) ** 2) hit = true;
+      if ((e.kind === 'bumper' || e.kind === 'cog') && (s.x - e.x) ** 2 + (s.y - e.y) ** 2 < (s.r + e.r) ** 2) hit = true;
     }
     if (i % 6 === 5) pts.push({ x: s.x, y: s.y });
     if (hit) break;

@@ -118,7 +118,7 @@ function createReward(app, { root }) {
         ${extra.join('')}
         <div class="rchips">${chips.join('')}</div>`}
         <div class="rbtns">
-          <button class="btn btn-ghost" id="r-home">${ICON.home}<span>Village</span></button>
+          <button class="btn btn-ghost" id="r-home">${ICON.home}<span>${world.homeWord}</span></button>
           <button class="btn" id="r-again">${canAgain ? `Dive again <span class="dive-cost">${ICON.spark}1</span>` : 'Practice dive'}</button>
         </div>
       </div>`;

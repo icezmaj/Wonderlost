@@ -6,6 +6,7 @@
 // economy replace it before any real-money feature ships (docs/GDD.md, s.10).
 
 import { newState, SAVE_VERSION } from '../progression/state.js';
+import { WORLDS } from '../config/worlds.js';
 
 const SAVE_KEY = 'wonderlost.save';
 
@@ -68,7 +69,14 @@ function fill(defaults, raw) {
 
 // Step-by-step upgrades between save versions: MIGRATIONS[n] turns v(n) into v(n+1).
 const MIGRATIONS = {
-  0: (raw) => ({ ...raw, v: 1 })
+  0: (raw) => ({ ...raw, v: 1 }),
+  // v2: a second world. The single "set rewarded" flag becomes one per set.
+  1: (raw) => {
+    const out = { ...raw, v: 2, sets: { ...(raw.sets || {}) } };
+    if (raw.setRewarded) out.sets.first_dawn = true;
+    delete out.setRewarded;
+    return out;
+  }
 };
 
 /** Bring any older (or partial) save up to the current shape. */
@@ -83,6 +91,7 @@ function migrate(raw, now) {
   }
   const state = fill(newState(now), data);
   state.v = SAVE_VERSION;
+  if (!WORLDS[state.worldId]) state.worldId = 'mistlewick';
   // Guard numeric balances against hand-edited or damaged values.
   for (const k of ['glow', 'sparks', 'xp', 'echoes']) {
     if (!Number.isFinite(state[k]) || state[k] < 0) state[k] = 0;

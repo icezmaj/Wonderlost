@@ -21,6 +21,9 @@ function drawCreature(ctx, id, x, y, s, t, opts = {}) {
   if (id === 'nimbit') nimbit(ctx, t, blink, opts);
   else if (id === 'sprigget') sprigget(ctx, t, blink, opts);
   else if (id === 'whistlewing') whistlewing(ctx, t, blink, opts);
+  else if (id === 'tocklet') tocklet(ctx, t, blink, opts);
+  else if (id === 'springle') springle(ctx, t, blink, opts);
+  else if (id === 'hourmoth') hourmoth(ctx, t, blink, opts);
   ctx.restore();
 }
 
@@ -162,6 +165,151 @@ function whistlewing(ctx, t, blink, o) {
   }
 }
 
+// Tocklet: a wind-up mouse with a brass key in its back.
+function tocklet(ctx, t, blink, o) {
+  const bob = Math.sin(t * 3) * 0.6;
+  const turn = o.asleep ? 0 : t * 2.4;
+  // winding key
+  ctx.save();
+  ctx.translate(-8.5, -3 + bob);
+  ctx.strokeStyle = '#a8742a';
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-4, -2);
+  ctx.stroke();
+  ctx.fillStyle = '#f5b942';
+  ellipse(ctx, -6, -3 + Math.sin(turn) * 0.4, 1.8, 3.6 * Math.abs(Math.cos(turn)) + 0.8);
+  ctx.restore();
+  // tail
+  ctx.strokeStyle = '#f4a6b4';
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.moveTo(-7, 7 + bob);
+  ctx.quadraticCurveTo(-14, 10, -12, 3 + Math.sin(t * 2) * 1.5);
+  ctx.stroke();
+  // feet
+  ctx.fillStyle = '#f4a6b4';
+  ellipse(ctx, -3.6, 10.4, 2.6, 1.5);
+  ellipse(ctx, 4.4, 10.4, 2.6, 1.5);
+  // ears
+  ctx.fillStyle = '#c9b8a8';
+  circle(ctx, -5.5, -7 + bob, 4.8);
+  circle(ctx, 6, -7.5 + bob, 4.8);
+  ctx.fillStyle = '#f4a6b4';
+  circle(ctx, -5.5, -7 + bob, 2.8);
+  circle(ctx, 6, -7.5 + bob, 2.8);
+  // body
+  ctx.fillStyle = '#c9b8a8';
+  ellipse(ctx, 0, 3.4 + bob, 9.4, 8);
+  ctx.fillStyle = '#efe4d6';
+  ellipse(ctx, 0.4, 2 + bob, 8.8, 7.4);
+  ctx.fillStyle = '#fff6e2';
+  ellipse(ctx, 1.4, 5.4 + bob, 5, 4);
+  // brass seam and rivet: it is clockwork, after all
+  ctx.strokeStyle = 'rgba(168,116,42,.55)';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.arc(0.4, 2 + bob, 8.2, 0.62 * Math.PI, 0.95 * Math.PI);
+  ctx.stroke();
+  eyes(ctx, 3.4, 0.6 + bob, 1.5, blink);
+  cheeks(ctx, 6.2, 3.2 + bob, 1.8);
+  ctx.fillStyle = '#c9647a';
+  circle(ctx, 0.6, 2.6 + bob, 1);
+  smile(ctx, 3.2 + bob, 1.4, o.happy);
+}
+
+// Springle: a coil-spring hopper. The spring squashes and stretches.
+function springle(ctx, t, blink, o) {
+  const sq = o.asleep ? 0 : Math.sin(t * 5.2);
+  const h = 9 + sq * 2.4;
+  ctx.strokeStyle = '#a8742a';
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    const y = 10 - (i / 3.4) * h;
+    ctx.strokeStyle = i % 2 ? '#e7ae4a' : '#a8742a';
+    ctx.beginPath();
+    ctx.ellipse(0, y, 6.4 - i * 0.5, 2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  const hy = 10 - h - 6;
+  ctx.fillStyle = '#5fb7a8';
+  circle(ctx, 0, hy + 1, 7.4);
+  ctx.fillStyle = '#8fdccd';
+  circle(ctx, 0, hy, 7);
+  ctx.fillStyle = '#d6f6ee';
+  ellipse(ctx, -1.6, hy - 2.6, 3.6, 2.4);
+  // antenna with a bead
+  ctx.strokeStyle = '#a8742a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, hy - 6.6);
+  ctx.quadraticCurveTo(2 + sq, hy - 11, 3 + sq * 1.4, hy - 12);
+  ctx.stroke();
+  ctx.fillStyle = '#f5b942';
+  circle(ctx, 3 + sq * 1.4, hy - 12.6, 1.7);
+  eyes(ctx, 2.9, hy + 0.2, 1.5, blink);
+  cheeks(ctx, 5, hy + 2.6, 1.6);
+  smile(ctx, hy + 2.4, 1.5, o.happy);
+}
+
+// Hourmoth: an hourglass moth with sand-coloured wings.
+function hourmoth(ctx, t, blink, o) {
+  const flap = o.asleep ? 0.25 : Math.sin(t * 9) * 0.5 + 0.5;
+  const bob = Math.sin(t * 2.6) * 1.2;
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.translate(side * 3.4, -1 + bob);
+    ctx.scale(side * (0.5 + flap * 0.5), 1);
+    ctx.fillStyle = '#e6c39c';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(7, -15, 13, -7);
+    ctx.quadraticCurveTo(11, 1, 0, 2);
+    ctx.fill();
+    ctx.fillStyle = '#fbe9c6';
+    ctx.beginPath();
+    ctx.moveTo(0, 2);
+    ctx.quadraticCurveTo(11, 4, 9, 11);
+    ctx.quadraticCurveTo(3, 11, 0, 4);
+    ctx.fill();
+    ctx.fillStyle = '#f5b942';
+    circle(ctx, 8.4, -6.4, 1.8);
+    ctx.restore();
+  }
+  // hourglass body
+  ctx.fillStyle = '#b9a6e0';
+  ctx.beginPath();
+  ctx.moveTo(-4.2, -8 + bob);
+  ctx.lineTo(4.2, -8 + bob);
+  ctx.lineTo(1.2, 1 + bob);
+  ctx.lineTo(4.2, 10 + bob);
+  ctx.lineTo(-4.2, 10 + bob);
+  ctx.lineTo(-1.2, 1 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#f5b942';
+  ctx.beginPath();
+  ctx.moveTo(-3, 9 + bob);
+  ctx.lineTo(3, 9 + bob);
+  ctx.lineTo(0.6, 4.4 + bob);
+  ctx.lineTo(-0.6, 4.4 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#a8742a';
+  roundRect(ctx, -5, -9.4 + bob, 10, 2.2, 1);
+  ctx.fill();
+  roundRect(ctx, -5, 9.4 + bob, 10, 2.2, 1);
+  ctx.fill();
+  // face on the top bulb
+  ctx.fillStyle = '#d9cdf2';
+  circle(ctx, 0, -11.6 + bob, 4.6);
+  eyes(ctx, 1.9, -11.8 + bob, 1.2, blink);
+  cheeks(ctx, 3.3, -10.2 + bob, 1.2);
+}
+
 /** "Zzz" above a sleeping creature. */
 function drawZzz(ctx, x, y, t) {
   ctx.fillStyle = 'rgba(255,255,255,.85)';
@@ -180,11 +328,11 @@ function drawZzz(ctx, x, y, t) {
  * `silhouette` draws the undiscovered version.
  */
 function drawArtifact(ctx, id, x, y, s, silhouette = false) {
-  if (place(ctx, 'art_' + id, x, y, { scale: s, silhouette: silhouette ? '#16525e' : null })) return;
+  if (place(ctx, 'art_' + id, x, y, { scale: s, silhouette: silhouette ? '#0c3540' : null })) return;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
-  const c = (color) => (silhouette ? '#16525e' : color);
+  const c = (color) => (silhouette ? '#0c3540' : color);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   if (id === 'spoon') {
@@ -275,6 +423,104 @@ function drawArtifact(ctx, id, x, y, s, silhouette = false) {
     ctx.fillStyle = c('#ffffff');
     circle(ctx, -3, -8, 3);
     circle(ctx, 1.5, -11, 2.2);
+  } else if (id === 'windkey') {
+    ctx.rotate(0.5);
+    ctx.strokeStyle = c('#e7ae4a');
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, -3);
+    ctx.lineTo(0, 12);
+    ctx.moveTo(0, 8);
+    ctx.lineTo(4, 8);
+    ctx.moveTo(0, 12);
+    ctx.lineTo(5, 12);
+    ctx.stroke();
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.arc(-4.4, -8, 4, 0, Math.PI * 2);
+    ctx.arc(4.4, -8, 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = c('#fff3c4');
+    circle(ctx, 0, -3, 1.6);
+  } else if (id === 'escapement') {
+    ctx.fillStyle = c('#e7ae4a');
+    ctx.beginPath();
+    for (let i = 0; i < 20; i++) {
+      const rr = i % 2 ? 11 : 7.6;
+      const a = (i / 20) * Math.PI * 2;
+      ctx.lineTo(Math.cos(a) * rr, 2 + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = c('#a8742a');
+    circle(ctx, 0, 2, 3);
+    ctx.strokeStyle = c('#f08a8a');
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(-8, -9);
+    ctx.lineTo(0, -13);
+    ctx.lineTo(8, -9);
+    ctx.stroke();
+  } else if (id === 'hairspring') {
+    ctx.strokeStyle = c('#cfd8ea');
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    for (let i = 0; i <= 90; i++) {
+      const a = (i / 90) * Math.PI * 7;
+      const rr = 1.5 + (i / 90) * 11;
+      const px = Math.cos(a) * rr;
+      const py = Math.sin(a) * rr;
+      if (i) ctx.lineTo(px, py);
+      else ctx.moveTo(px, py);
+    }
+    ctx.stroke();
+    ctx.fillStyle = c('#f5b942');
+    circle(ctx, 0, 0, 2.2);
+  } else if (id === 'moondial') {
+    ctx.fillStyle = c('#a8742a');
+    circle(ctx, 0, 0, 12.5);
+    ctx.fillStyle = c('#2b3a78');
+    circle(ctx, 0, 0, 10.4);
+    ctx.fillStyle = c('#fff3c4');
+    circle(ctx, -1, 0, 6.4);
+    ctx.fillStyle = c('#2b3a78');
+    circle(ctx, 2.6, -1.4, 5.6);
+    ctx.fillStyle = c('#ffe08a');
+    circle(ctx, 6, 5.4, 1);
+    circle(ctx, -6.4, -6, 0.9);
+  } else if (id === 'chime') {
+    ctx.strokeStyle = c('#a8742a');
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-9, -11);
+    ctx.lineTo(9, -11);
+    ctx.stroke();
+    [[-6, 10], [0, 14], [6, 8]].forEach(([x, len], k) => {
+      ctx.fillStyle = c(['#f8d789', '#e7ae4a', '#f8d789'][k]);
+      roundRect(ctx, x - 2.2, -10, 4.4, len + 8, 2.2);
+      ctx.fill();
+    });
+    ctx.fillStyle = c('#f08a8a');
+    circle(ctx, 0, -12.6, 2);
+  } else if (id === 'lens') {
+    ctx.strokeStyle = c('#a8742a');
+    ctx.lineWidth = 3.4;
+    ctx.beginPath();
+    ctx.moveTo(5, 5);
+    ctx.lineTo(12, 12);
+    ctx.stroke();
+    ctx.fillStyle = c('#bfe9f2');
+    circle(ctx, -2, -2, 9);
+    ctx.strokeStyle = c('#e7ae4a');
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.arc(-2, -2, 9, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = c('#ffffff');
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(-2, -2, 5.6, 1.1 * Math.PI, 1.5 * Math.PI);
+    ctx.stroke();
   }
   ctx.restore();
 }

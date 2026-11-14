@@ -16,6 +16,16 @@ const SLOTS = [
   [124, 446, 3], [236, 446, 3]
 ];
 
+// Tocktown's hollows are laid out like a clock face: the hours round a ring,
+// with one anchor at the centre where the hands meet.
+const DIAL_SLOTS = [
+  [180, 172, 0], [96, 210, 0], [264, 210, 0],
+  [62, 304, 1], [298, 304, 1],
+  [180, 306, 2], [98, 398, 2], [262, 398, 2],
+  [142, 458, 3], [218, 458, 3]
+];
+const LAYOUTS = { rows: SLOTS, dial: DIAL_SLOTS };
+
 // The first hollow every player sees (hollow 0) is authored by hand.
 const TUTORIAL = {
   lanterns: [[180, 282], [92, 338], [268, 338], [180, 492]],
@@ -80,16 +90,18 @@ function distToSegment(px, py, seg) {
  * @param hollow { index, seed, lit[], relic, relicTaken, bubble, bubbleTaken, bubbleMoving }
  * @param mods   restoration modifiers: bumpers, geysers, moteBonus
  */
-function buildLevel(hollow, mods = {}) {
+function buildLevel(hollow, mods = {}, style = {}) {
   const rng = mulberry32(hollow.seed);
-  const tutorial = hollow.index === 0;
+  const layout = LAYOUTS[style.layout] || SLOTS;
+  // only the very first hollow of the first world is the hand-made lesson
+  const tutorial = hollow.index === 0 && layout === SLOTS;
   const launcher = { x: 180, y: 58 };
   const hearth = { x: tutorial ? 180 : 180 + Math.round(range(rng, -28, 28)), y: 606, w: T.hearthWidth };
   const segments = [];
   const ents = [];
   let motes = [];
 
-  const slots = SLOTS.map(([x, y, row], i) => ({
+  const slots = layout.map(([x, y, row], i) => ({
     i,
     row,
     x: tutorial ? x : x + Math.round(range(rng, -10, 10)),
@@ -130,10 +142,22 @@ function buildLevel(hollow, mods = {}) {
     }
   });
 
-  const nBumpers = tutorial ? TUTORIAL.bumpers.length : Math.min(4, 1 + (mods.bumpers || 0));
+  // Spinning cogs (Tocktown) share the anchors with bell blooms and the relic,
+  // so on a clock-face hollow the blooms give way: there is always room for
+  // the relic, every cog, and at least one open anchor.
+  const nCogs = layout === DIAL_SLOTS ? Math.min(3, mods.cogs || 0) : 0;
+  const hasRelic = !tutorial && hollow.relic && !hollow.relicTaken;
+  let nBumpers = tutorial ? TUTORIAL.bumpers.length : Math.min(4, 1 + (mods.bumpers || 0));
+  if (layout === DIAL_SLOTS) nBumpers = Math.max(0, Math.min(nBumpers, pool.length - nCogs - (hasRelic ? 1 : 0) - 1));
   for (let b = 0; b < nBumpers && pool.length; b++) {
     const s = take((q) => q.row >= 1);
     ents.push({ kind: 'bumper', x: s.x, y: s.y, r: 17 });
+  }
+
+  // alternate which way the cogs turn
+  for (let c = 0; c < nCogs && pool.length; c++) {
+    const s = take((q) => q.row >= 1);
+    ents.push({ kind: 'cog', x: s.x, y: s.y, r: T.cogRadius, dir: c % 2 ? -1 : 1 });
   }
 
   if (!tutorial && hollow.relic && !hollow.relicTaken && pool.length) {
@@ -190,7 +214,7 @@ function buildLevel(hollow, mods = {}) {
     // in the gap between the corner vent and the widest the Hearth can be, so
     // it never overlaps either.
     const side = hearth.x > 180 ? -1 : hearth.x < 180 ? 1 : firstSide;
-    const reach = (T.hearthWidth * 1.45) / 2 + 6;
+    const reach = (T.hearthWidth * T.hearthMaxScale) / 2 + 6;
     const x = side < 0 ? (66 + hearth.x - reach) / 2 : (FIELD.w - 66 + hearth.x + reach) / 2;
     ents.push({ kind: 'geyser', x: Math.round(x), y: 620, w: 44 });
   }
@@ -224,7 +248,7 @@ function buildLevel(hollow, mods = {}) {
   }
   for (const p of kept) ents.push({ kind: 'mote', x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 });
 
-  return { index: hollow.index, launcher, hearth, segments, ents, lit: hollow.lit.slice() };
+  return { index: hollow.index, launcher, hearth, segments, ents, lit: hollow.lit.slice(), theme: style.theme || 'mist' };
 }
 
 export { buildLevel };

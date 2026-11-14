@@ -2,9 +2,9 @@
 // except regenSparks(), which is pure bookkeeping against a supplied clock.
 
 import { TUNING as T } from '../config/tuning.js';
-import { WORLDS } from '../config/worlds.js';
+import { WORLDS, WORLD_ORDER } from '../config/worlds.js';
 
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 
 /** @returns a brand-new player state. `now` is epoch milliseconds. */
 function newState(now) {
@@ -26,12 +26,14 @@ function newState(now) {
     artifacts: {}, // id -> count
     echoes: 0,
     lastWasDup: false,
-    setRewarded: false,
+    sets: {}, // artifact set id -> true once its reward was granted
     cosmetics: ['default'],
     trail: 'default',
 
-    hollow: null, // current dive field; see actions.ensureHollow
+    hollow: null, // current dive field in the current world; see actions.ensureHollow
     hollowCount: 0,
+    byWorld: {}, // worldId -> { hollow, hollowCount } for worlds the player is not in right now
+    wstats: {}, // worldId -> counters earned in that world (for its case files)
 
     stats: {
       dives: 0,
@@ -73,14 +75,21 @@ function modsOf(s) {
     hollowBonus: 0,
     bumpers: 0,
     bumperValue: 0,
-    geysers: 0
+    geysers: 0,
+    chainWindow: 0,
+    cogs: 0,
+    hearthGrow: 0
   };
-  const world = worldOf(s);
-  for (const up of world.upgrades) {
-    const lvl = upgradeLevel(s, up.id);
-    for (let i = 0; i < lvl; i++) for (const k in up.levels[i].fx) m[k] += up.levels[i].fx[k];
+  // restoration is permanent: every world's upgrades count, wherever you dive
+  for (const id of WORLD_ORDER) {
+    for (const up of WORLDS[id].upgrades) {
+      const lvl = upgradeLevel(s, up.id);
+      for (let i = 0; i < lvl; i++) for (const k in up.levels[i].fx) m[k] += up.levels[i].fx[k];
+    }
   }
-  const comp = world.creatures.find((c) => c.id === s.companion);
+  // a friend from any world can travel with you
+  let comp = null;
+  for (const id of WORLD_ORDER) comp = comp || WORLDS[id].creatures.find((c) => c.id === s.companion);
   if (comp && s.creatures[comp.id]) Object.assign(m, comp.ability.mods);
   return m;
 }
@@ -88,17 +97,27 @@ function modsOf(s) {
 const sparkCap = (s) => T.sparkCap + modsOf(s).sparkCap;
 
 /** Total upgrade levels bought in the current world. */
-function totalLevels(s) {
+function totalLevels(s, worldId = s.worldId) {
   let n = 0;
-  for (const up of worldOf(s).upgrades) n += upgradeLevel(s, up.id);
+  for (const up of WORLDS[worldId].upgrades) n += upgradeLevel(s, up.id);
   return n;
 }
 
-function maxLevels(s) {
+function maxLevels(s, worldId = s.worldId) {
   let n = 0;
-  for (const up of worldOf(s).upgrades) n += up.levels.length;
+  for (const up of WORLDS[worldId].upgrades) n += up.levels.length;
   return n;
 }
+
+/** How many more restorations in an earlier world a locked world still needs (0 = open). */
+function unlockNeed(s, worldId) {
+  const u = WORLDS[worldId] && WORLDS[worldId].unlock;
+  return u ? Math.max(0, u.levels - totalLevels(s, u.world)) : 0;
+}
+const isUnlocked = (s, worldId) => !!WORLDS[worldId] && unlockNeed(s, worldId) === 0;
+
+/** Has this world's artifact set been completed and rewarded? */
+const setDone = (s, worldId = s.worldId) => !!s.sets[WORLDS[worldId].artifactSet.id];
 
 /** 0..1 restoration of the current world. Drives how alive the diorama looks. */
 const restoration = (s) => totalLevels(s) / maxLevels(s);
@@ -169,4 +188,4 @@ function upgradeOffer(s, up) {
 
 const anyAffordable = (s) => worldOf(s).upgrades.some((up) => upgradeOffer(s, up).affordable);
 
-export { SAVE_VERSION, newState, worldOf, upgradeLevel, modsOf, sparkCap, totalLevels, maxLevels, restoration, rankOf, bondLevel, regenSparks, nextSparkIn, upgradeOffer, anyAffordable };
+export { SAVE_VERSION, newState, worldOf, upgradeLevel, modsOf, sparkCap, totalLevels, maxLevels, unlockNeed, isUnlocked, setDone, restoration, rankOf, bondLevel, regenSparks, nextSparkIn, upgradeOffer, anyAffordable };

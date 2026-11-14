@@ -3,6 +3,8 @@
 import { CASE_FILES, DAILY_POOL, DAILY_COUNT } from '../config/objectives.js';
 import { mulberry32, hashSeed, shuffle } from '../core/rng.js';
 import { dayKey } from '../core/util.js';
+import { WORLDS } from '../config/worlds.js';
+import { unlockNeed } from './state.js';
 
 /**
  * Apply a reward bundle { glow?, sparks?, cosmetic? }.
@@ -25,8 +27,18 @@ const activeCase = (s) => CASE_FILES[s.caseIdx] || null;
 function caseProgress(s) {
   const c = activeCase(s);
   if (!c) return null;
-  const value = Math.min(c.target, s.stats[c.metric] || 0);
-  return { c, value, done: value >= c.target, index: s.caseIdx, total: CASE_FILES.length };
+  // A case that belongs to a world not opened yet waits, and says what opens it.
+  const need = c.world ? unlockNeed(s, c.world) : 0;
+  const counters = c.world ? s.wstats[c.world] || {} : s.stats;
+  const value = need ? 0 : Math.min(c.target, counters[c.metric] || 0);
+  const locked = need ? { need, world: WORLDS[c.world], gate: WORLDS[WORLDS[c.world].unlock.world] } : null;
+  return { c, value, done: value >= c.target, locked, index: s.caseIdx, total: CASE_FILES.length };
+}
+
+/** Count something that happened in the current world (for that world's cases). */
+function bumpWorld(s, metric, n = 1) {
+  const w = (s.wstats[s.worldId] = s.wstats[s.worldId] || {});
+  w[metric] = (w[metric] || 0) + n;
 }
 
 /** Claim the active case if complete. Returns the claimed case or null. */
@@ -74,4 +86,4 @@ function claimDaily(s, id) {
 
 const dailyClaimable = (s) => dailyList(s).some((r) => r.done && !r.claimed);
 
-export { grant, activeCase, caseProgress, claimCase, refreshDaily, dailyList, claimDaily, dailyClaimable };
+export { grant, activeCase, caseProgress, bumpWorld, claimCase, refreshDaily, dailyList, claimDaily, dailyClaimable };

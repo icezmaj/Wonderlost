@@ -13,6 +13,17 @@ Mobile game
 - `tools/unbundle.py` — splits a bundled build back into `src/`
 - `tools/smoke.js` — headless load check: `node tools/smoke.js <abs path to html> <screenshot path>`
 
+## Worlds
+
+- **Mistlewick** (Case 001, the cracked teapot) is the first world.
+- **Tocktown** (Case 002, the stopped pocket watch) opens after 12 restorations
+  in Mistlewick. Tap the watch on the desk to travel there, and the teapot to
+  come back. Its hollows are laid out like a clock face and add spinning cogs.
+
+World content is data in `src/config/worlds.js` (upgrades, creatures, artifacts)
+and `src/config/objectives.js` (case files). Tocktown's home scene is drawn in
+`src/render/tocktownScene.js`; it has no painted art yet.
+
 ## Build
 
 ```

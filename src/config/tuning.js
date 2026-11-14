@@ -24,6 +24,10 @@ const TUNING = {
   settleSeconds: 1.1,
   baseRekindles: 1,
   hearthWidth: 78,
+  hearthMaxScale: 1.6, // companion and upgrade bonuses together never widen the Hearth past this
+  cogRadius: 20,
+  cogFling: 230, // sideways speed a charged spinning cog adds
+  cogValue: 7, // Glow per charged cog hit (cogs replace some bell blooms, so they pay more)
 
   // --- Chains: gathers inside the window build a chain; tiers multiply Glow ---
   chainWindow: 1.5,

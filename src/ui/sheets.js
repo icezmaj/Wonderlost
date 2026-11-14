@@ -5,9 +5,9 @@
 import { ICON, rewardHtml, rewardText } from './dom.js';
 import { fmt, fmtTime } from '../core/util.js';
 import { TUNING as T } from '../config/tuning.js';
-import { COMING_SOON } from '../config/worlds.js';
+import { COMING_SOON, WORLDS, WORLD_ORDER } from '../config/worlds.js';
 import { TRAILS, EVENT_UNLOCK_RANK } from '../config/events.js';
-import { worldOf, upgradeOffer, restoration, bondLevel } from '../progression/state.js';
+import { worldOf, upgradeOffer, restoration, bondLevel, unlockNeed, setDone, totalLevels, maxLevels } from '../progression/state.js';
 import { buyUpgrade, setCompanion, setTrail, craftArtifact } from '../progression/actions.js';
 import { dailyList, claimDaily, refreshDaily } from '../progression/objectives.js';
 import { currentEvent, eventUnlocked, eventMilestones, claimMilestone } from '../progression/events.js';
@@ -70,10 +70,28 @@ function createSheets(app, { toast, refresh, root }) {
       </div>
       <div class="sh-body">
         ${rows.join('')}
-        <div class="soon">
-          <p class="eyebrow">Next on the Bureau's shelf · placeholder teasers</p>
-          ${COMING_SOON.map((w) => `<div class="soon-row"><b>${w.name}</b><span>${w.object}. ${w.tagline}</span></div>`).join('')}
-        </div>
+        ${shelfHtml()}
+      </div>`;
+  }
+
+  /** The Bureau's other cases: travel to the open ones, see what opens the rest. */
+  function shelfHtml() {
+    const s = app.state;
+    const others = WORLD_ORDER.filter((id) => id !== s.worldId).map((id) => {
+      const w = WORLDS[id];
+      const need = unlockNeed(s, id);
+      if (need) {
+        const gate = WORLDS[w.unlock.world];
+        return `<div class="soon-row"><b>Case ${w.caseNo} · ${w.name}</b><span>${w.object}. Restore ${need} more thing${need === 1 ? '' : 's'} in ${gate.name} to open it.</span></div>`;
+      }
+      const pct = Math.round((totalLevels(s, id) / maxLevels(s, id)) * 100);
+      return `<div class="soon-row go"><span><b>Case ${w.caseNo} · ${w.name}</b><span>${w.object}. ${pct}% restored.</span></span><button class="btn btn-small" data-act="travel" data-id="${id}">Travel</button></div>`;
+    });
+    return `
+      <div class="soon">
+        <p class="eyebrow">Also on the Bureau's desk</p>
+        ${others.join('')}
+        ${COMING_SOON.map((w) => `<div class="soon-row"><b>${w.name}</b><span>${w.object}. ${w.tagline} Later update.</span></div>`).join('')}
       </div>`;
   }
 
@@ -102,6 +120,11 @@ function createSheets(app, { toast, refresh, root }) {
       sfx.rankUp();
       track('rank_up', { rank: rk.rank });
       toast(`Promoted to <b>${rk.name}</b> +${rk.sparks} Sparks`, 'good');
+    }
+    for (const w of r.opened || []) {
+      track('world_opened', { world: w.id });
+      app.world.invalidate();
+      setTimeout(() => toast(`<b>Case ${w.caseNo} has arrived: ${w.name}</b> Tap ${w.dive.into} on the desk to open it.`, 'good'), 900);
     }
     if (r.worldComplete) setTimeout(() => open('complete'), 1400);
     refresh();
@@ -156,14 +179,14 @@ function createSheets(app, { toast, refresh, root }) {
       const has = s.artifacts[sel.id];
       if (has) detail = `<b>${sel.name}</b><p>${sel.lore}</p>`;
       else if (s.echoes >= T.echoCost) detail = `<b>Not yet recovered</b><p>Trade ${T.echoCost} Echoes to restore this piece.</p><button class="btn btn-small" data-act="craft" data-id="${sel.id}">Restore with ${T.echoCost} Echoes</button>`;
-      else detail = `<b>Not yet recovered</b><p>Relic crates hide under blue roofs inside hollows. ${T.echoCost} Echoes can also restore this exact piece.</p>`;
+      else detail = `<b>Not yet recovered</b><p>Relic crates hide under little roofs inside hollows. ${T.echoCost} Echoes can also restore this exact piece.</p>`;
     }
     return `
       <div class="set-head">
         <b>${set.name}</b>
         <span>${owned} of ${set.items.length} recovered</span>
       </div>
-      <p class="set-reward">${s.setRewarded ? ICON.check + ' Set complete. Reward collected.' : 'Complete the set: ' + rewardText(set.reward)}</p>
+      <p class="set-reward">${setDone(s) ? ICON.check + ' Set complete. Reward collected.' : 'Complete the set: ' + rewardText(set.reward)}</p>
       <div class="art-grid">
         ${set.items.map((it) => `
           <button class="art${s.artifacts[it.id] ? ' owned' : ''}${picked === it.id ? ' sel' : ''}" data-act="artifact" data-id="${it.id}">
@@ -284,16 +307,16 @@ function createSheets(app, { toast, refresh, root }) {
 
   function completeHtml() {
     const world = worldOf(app.state);
+    const lead = world.id === 'tocktown'
+      ? 'The mainspring is wound, the tower keeps the hour, and the town is ticking again.'
+      : 'Every crack is sealed with gold, the lanterns are lit, and the village is home again.';
     return `
       ${head('Case ' + world.caseNo + ' closed', world.name + ' is awake')}
       <div class="sh-body">
-        <p class="lead">Every crack is sealed with gold, the lanterns are lit, and the village is home again. This is the end of the prototype's first world.</p>
-        <p>Hollows, daily tasks and events keep going, and your village is yours to visit.</p>
-        <div class="soon">
-          <p class="eyebrow">Next on the Bureau's shelf · placeholder teasers</p>
-          ${COMING_SOON.map((w) => `<div class="soon-row"><b>${w.name}</b><span>${w.object}. ${w.tagline}</span></div>`).join('')}
-        </div>
-        <button class="btn wide" data-act="close">Back to the village</button>
+        <p class="lead">${lead}</p>
+        <p>Hollows, daily tasks and events keep going, and ${world.name} is yours to visit.</p>
+        ${shelfHtml()}
+        <button class="btn wide" data-act="close">Back to ${world.name}</button>
       </div>`;
   }
 
@@ -358,6 +381,8 @@ function createSheets(app, { toast, refresh, root }) {
           app.save();
         }
         break;
+      case 'travel':
+        return app.travel(id);
       case 'trail':
         if (setTrail(s, id)) {
           sfx.tap();

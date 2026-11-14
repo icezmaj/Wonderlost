@@ -9,7 +9,9 @@ import { mulberry32 } from '../core/rng.js';
 import { glow, additive, ellipse, circle, roundRect, cloud, star4, Particles } from './gfx.js';
 import { drawCreature } from './creatures.js';
 import { has, place, slot, cover, band, assetVersion } from './assets.js';
-import { upgradeLevel, restoration } from '../progression/state.js';
+import { upgradeLevel, restoration, worldOf, isUnlocked, setDone } from '../progression/state.js';
+import { WORLDS, WORLD_ORDER } from '../config/worlds.js';
+import { TOCK_ANCHOR, drawWatch, drawWatchLive, drawTown, drawTownLive } from './tocktownScene.js';
 
 const BOX = { w: 360, h: 480 }; // the diorama is authored in this box, then fitted to the screen
 
@@ -60,11 +62,18 @@ const CUP_SPOTS = [[62, 189, '#ffd3dd', '#ff8fa3'], [92, 184, '#d6efff', '#6fa8f
 const BUSH_SPOTS = [[256, 181], [300, 181], [276, 177], [314, 186]];
 const FOLK_SPOTS = [[50, 191], [76, 194], [104, 192], [124, 196], [66, 199], [110, 200]];
 const LAMP_COLORS = ['#ffcf5c', '#ff8fa3', '#7fe3d8'];
-// Cases still waiting on the Bureau desk, behind the teapot (box coords).
-const TEASERS = [
-  { x: 24, y: 456, r: 21, kind: 'watch' },
-  { x: 342, y: 456, r: 22, kind: 'globe' }
-];
+// Other cases on the Bureau desk, beside the one that is open (box coords).
+// `world` is a case you can travel to; `soon` indexes COMING_SOON.
+const TEASERS = {
+  mistlewick: [
+    { x: 24, y: 456, r: 21, kind: 'watch', world: 'tocktown' },
+    { x: 342, y: 456, r: 22, kind: 'globe', soon: 0 }
+  ],
+  tocktown: [
+    { x: 30, y: 458, r: 22, kind: 'teapot', world: 'mistlewick' },
+    { x: 342, y: 456, r: 22, kind: 'globe', soon: 0 }
+  ]
+};
 // Where the spout opens on the painted teapots: stages 0-2, then stage 3 (box coords).
 const SPOUT_ART = [[292, 339], [281, 351]];
 const CREATURE_SCALE = 1.45; // creatures in the village, relative to their ~28-unit base size
@@ -92,8 +101,15 @@ function createWorldView(getState) {
   const critters = {
     nimbit: { x: 126, min: 104, max: 256, y: 292, dir: 1, pause: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
     sprigget: { x: 270, min: 236, max: 334, y: 214, dir: -1, pause: 2, hop: 0, happy: 0, sx: 0, sy: 0 },
-    whistlewing: { x: 180, y: 60, phase: 0, hop: 0, happy: 0, sx: 0, sy: 0 }
+    whistlewing: { x: 180, y: 60, fly: [180, 84, 78, 14], phase: 0, dir: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
+    // Tocktown
+    tocklet: { x: 150, min: 128, max: 232, y: 286, dir: 1, pause: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
+    springle: { x: 300, min: 250, max: 336, y: 210, dir: -1, pause: 2, hop: 0, happy: 0, sx: 0, sy: 0, bouncy: true },
+    hourmoth: { x: 180, y: 60, fly: [180, 92, 84, 18], phase: 1.4, dir: 1, hop: 0, happy: 0, sx: 0, sy: 0 }
   };
+  const isTock = () => getState().worldId === 'tocktown';
+  const residents = (st) => worldOf(st).creatures.map((c) => c.id);
+  const teasers = (st) => TEASERS[st.worldId] || [];
 
   const toScreen = (bx, by, bob = 0) => [geom.ox + bx * geom.s, geom.oy + (by + bob) * geom.s];
   const bobNow = () => Math.sin(t * 0.8) * 2.2;
@@ -119,7 +135,24 @@ function createWorldView(getState) {
     sky.addColorStop(0, mixHex('#0a081f', '#17235f', p));
     sky.addColorStop(0.5, mixHex('#191343', '#4d3f99', p));
     sky.addColorStop(1, mixHex('#30205a', '#f09aa8', p));
-    if (!cover(g, 'mw_backdrop', W, H)) {
+    const tock = st.worldId === 'tocktown';
+    if (tock) {
+      // Tocktown: the deep blue of one minute to midnight, warming as the town wakes
+      const night = g.createLinearGradient(0, 0, 0, deskY);
+      night.addColorStop(0, mixHex('#0b1230', '#16224f', p));
+      night.addColorStop(0.55, mixHex('#1d2a5c', '#3d4a8c', p));
+      night.addColorStop(1, mixHex('#4a3f7c', '#c98aa0', p));
+      g.fillStyle = night;
+      g.fillRect(0, 0, W, H);
+      const rng = mulberry32(23);
+      for (let i = 0; i < 90; i++) {
+        const x = rng() * W;
+        const y = rng() * deskY * 0.9;
+        const r = 0.4 + rng() * 1.2;
+        g.fillStyle = `rgba(255,244,214,${(0.3 + rng() * 0.6) * (1 - p * 0.35)})`;
+        circle(g, x, y, r);
+      }
+    } else if (!cover(g, 'mw_backdrop', W, H)) {
       g.fillStyle = sky;
       g.fillRect(0, 0, W, H);
 
@@ -135,7 +168,18 @@ function createWorldView(getState) {
     }
     // porcelain moon: reward for completing the artifact set
     const my = geom.oy + 70 * geom.s;
-    if (st.setRewarded && !place(g, 'mw_moon', 56, my)) {
+    if (tock) {
+      if (setDone(st)) {
+        // a full moon over Tocktown: the reward for the Regalia
+        additive(g, () => glow(g, 62, my, 74, '#fff0c8', 0.5));
+        g.fillStyle = '#fff6dc';
+        circle(g, 62, my, 23);
+        g.fillStyle = 'rgba(201,160,90,.3)';
+        circle(g, 55, my - 6, 5);
+        circle(g, 69, my + 5, 6.5);
+        circle(g, 66, my - 10, 3);
+      }
+    } else if (setDone(st) && !place(g, 'mw_moon', 56, my)) {
       additive(g, () => glow(g, 56, my, 60, '#bcd0ff', 0.5));
       g.fillStyle = '#f4f7ff';
       circle(g, 56, my, 19);
@@ -143,7 +187,7 @@ function createWorldView(getState) {
       circle(g, 64, my - 6, 16);
     }
     // warm horizon behind the teapot
-    const painted = has('mw_backdrop'); // painted skies carry their own light
+    const painted = !tock && has('mw_backdrop'); // painted skies carry their own light
     additive(g, () => {
       glow(g, W / 2, deskY, 250 * geom.s, '#ff9d6b', painted ? 0.06 + p * 0.12 : 0.12 + p * 0.3);
       if (p >= 1) glow(g, W / 2, geom.oy + 60 * geom.s, 190 * geom.s, '#ffe9a8', painted ? 0.1 : 0.22);
@@ -446,6 +490,7 @@ function createWorldView(getState) {
         g.restore();
       }
     });
+    if (st.worldId !== 'mistlewick') return; // the far cloud islands belong to Mistlewick's sky
     for (const f of farIsles) {
       if (!place(g, 'mw_island', f.x, f.y, { w: 160 * f.k, alpha: 0.55, quiet: true })) {
         cloud(g, f.x, f.y, 150 * f.k, 34 * f.k, 'rgba(255,255,255,.2)', 'rgba(170,200,230,.14)');
@@ -464,18 +509,38 @@ function createWorldView(getState) {
   }
 
   // The next cases, waiting their turn: dark shapes on the desk behind the pot.
-  function drawTeasers(g) {
-    const body = '#0f3d48';
-    const face = '#1a5662';
-    const dark = '#0a2c35';
-    const rim = 'rgba(196,238,230,.5)';
+  function drawTeasers(g, st) {
     g.lineCap = 'round';
-    for (const tz of TEASERS) {
+    for (const tz of teasers(st)) {
+      // a case you can open is shown in its own colours; one still waiting is a dark shape
+      const open = tz.world && isUnlocked(st, tz.world);
+      const body = open ? '#a8742a' : '#0f3d48';
+      const face = open ? '#fff0c8' : '#1a5662';
+      const dark = open ? '#5a2a3a' : '#0a2c35';
+      const rim = open ? 'rgba(255,246,214,.8)' : 'rgba(196,238,230,.5)';
       g.save();
       g.translate(tz.x, tz.y);
       g.fillStyle = 'rgba(3,23,28,.55)';
       ellipse(g, 2, 1, tz.r * 1.05, 3.4);
-      if (tz.kind === 'watch') {
+      if (tz.kind === 'teapot') {
+        // Mistlewick's teapot, as you left it
+        const lv = upgradeLevel(st, 'teapot');
+        if (!place(g, 'mw_teapot_' + lv, 0, 2, { w: 58, anchor: 'ground', quiet: true })) {
+          g.fillStyle = '#f4a6b4';
+          ellipse(g, 0, -13, 20, 14);
+          g.strokeStyle = '#f4a6b4';
+          g.lineWidth = 4;
+          g.beginPath();
+          g.arc(-20, -14, 8, 0.5 * Math.PI, 1.5 * Math.PI);
+          g.stroke();
+          g.beginPath();
+          g.moveTo(17, -14);
+          g.lineTo(28, -24);
+          g.stroke();
+          g.fillStyle = '#7a2f3f';
+          ellipse(g, 0, -25, 11, 3);
+        }
+      } else if (tz.kind === 'watch') {
         // a stopped pocket watch, propped up, one minute to midnight
         g.rotate(-0.16);
         g.strokeStyle = body;
@@ -807,12 +872,15 @@ function createWorldView(getState) {
     g.translate(geom.ox, geom.oy);
     g.scale(geom.s, geom.s);
     drawFarSky(g, st);
-    drawTeasers(g);
-    drawTeapot(g, st);
+    drawTeasers(g, st);
+    const tock = st.worldId === 'tocktown';
+    if (tock) drawWatch(g, st);
+    else drawTeapot(g, st);
     [village, g] = mk();
     g.translate(geom.ox, geom.oy);
     g.scale(geom.s, geom.s);
-    drawVillage(g, st);
+    if (tock) lamps = drawTown(g, st);
+    else drawVillage(g, st);
   }
 
   // ------------------------------------------------------------ per frame
@@ -823,8 +891,9 @@ function createWorldView(getState) {
     const p = restoration(st);
     fx.update(dt);
 
+    const tock = st.worldId === 'tocktown';
     // steam rising from the teapot's opening and spout
-    if (Math.random() < dt * (3 + p * 6)) {
+    if (!tock && Math.random() < dt * (3 + p * 6)) {
       const art = has('mw_teapot_' + upgradeLevel(st, 'teapot'));
       steam.push({
         x: (art ? 184 : 180) + (Math.random() - 0.5) * (art ? 44 : 60),
@@ -837,7 +906,7 @@ function createWorldView(getState) {
       });
     }
     // steam curling from the spout, wherever this pot's spout is
-    if (Math.random() < dt * (2.2 + p * 3.2)) {
+    if (!tock && Math.random() < dt * (2.2 + p * 3.2)) {
       const lv = upgradeLevel(st, 'teapot');
       const [sx, sy] = !has('mw_teapot_' + lv) ? [328, 342] : lv >= 3 ? SPOUT_ART[1] : SPOUT_ART[0];
       steam.push({
@@ -851,7 +920,7 @@ function createWorldView(getState) {
         spout: true
       });
     }
-    if (upgradeLevel(st, 'garden') > 0 && Math.random() < dt * 3) {
+    if (!tock && upgradeLevel(st, 'garden') > 0 && Math.random() < dt * 3) {
       const [gx, gy] = moved('garden', 288, 178);
       steam.push({ x: gx, y: gy, vx: (Math.random() - 0.5) * 5, vy: -16, r: 3, life: 1, village: true });
     }
@@ -882,10 +951,18 @@ function createWorldView(getState) {
     }
 
     // creatures potter about
-    for (const id of ['nimbit', 'sprigget']) {
+    for (const id of residents(st)) {
       const c = critters[id];
       c.hop = Math.max(0, c.hop - dt * 2.4);
       c.happy = Math.max(0, c.happy - dt);
+      if (c.fly) {
+        // flyers loop round their tower
+        c.phase += dt * 0.9;
+        c.x = c.fly[0] + Math.cos(c.phase) * c.fly[2];
+        c.y = c.fly[1] + Math.sin(c.phase * 2) * c.fly[3];
+        c.dir = Math.sin(c.phase) > 0 ? -1 : 1;
+        continue;
+      }
       if (c.pause > 0) {
         c.pause -= dt;
         continue;
@@ -898,17 +975,16 @@ function createWorldView(getState) {
         if (Math.random() < 0.4) c.dir *= -1;
       }
     }
-    const w = critters.whistlewing;
-    w.phase += dt * 0.9;
-    w.hop = Math.max(0, w.hop - dt * 2.4);
-    w.happy = Math.max(0, w.happy - dt);
-    w.x = 180 + Math.cos(w.phase) * 78;
-    w.y = 84 + Math.sin(w.phase * 2) * 14;
   }
 
   function draw(ctx, W, H, px) {
     const st = getState();
-    const k = [W, H, px, assetVersion(), st.setRewarded, ...Object.keys(ANCHOR).map((id) => upgradeLevel(st, id))].join(',');
+    const tock = st.worldId === 'tocktown';
+    const k = [
+      W, H, px, assetVersion(), st.worldId, setDone(st),
+      ...WORLD_ORDER.map((w) => isUnlocked(st, w)),
+      ...WORLD_ORDER.flatMap((w) => WORLDS[w].upgrades.map((u) => upgradeLevel(st, u.id)))
+    ].join(',');
     if (k !== key) {
       fit(W, H);
       rebuild(st, px);
@@ -931,14 +1007,16 @@ function createWorldView(getState) {
       ctx.drawImage(puff(), c.x - c.w / 2, c.y - c.w * 0.2, c.w, c.w * 0.4);
     }
     ctx.globalAlpha = 1;
-    if (p > 0.15) {
+    if (!tock && p > 0.15) {
       additive(ctx, () => {
         for (const f of farIsles) glow(ctx, f.x, f.y - 13 * f.k, 10 * f.k + 3, '#ffd98a', 0.35 + p * 0.35 + Math.sin(t * 1.4 + f.ph) * 0.12);
       });
     }
 
+    if (tock) drawWatchLive(ctx, st, t, p);
     // light inside the teapot
     const potArt = has('mw_teapot_' + L('teapot'));
+    if (!tock) {
     additive(ctx, () => {
       // a column of warm light rising from the pot to the village it holds up
       const lift = 0.1 + p * 0.16 + Math.sin(t * 1.3) * 0.02;
@@ -963,6 +1041,7 @@ function createWorldView(getState) {
       ctx.fillStyle = `rgba(255,255,255,${(s.spout ? 0.26 : 0.1) * s.life + 0.08 * s.life * p})`;
       circle(ctx, s.x, s.y, s.r);
     }
+    } // (Mistlewick only)
     ctx.restore();
 
     ctx.drawImage(village, 0, bob * geom.s, W, H);
@@ -971,9 +1050,11 @@ function createWorldView(getState) {
     ctx.translate(geom.ox, geom.oy + bob * geom.s);
     ctx.scale(geom.s, geom.s);
 
+    if (tock) drawTownLive(ctx, st, t, lamps);
     // Where finished art fills a slot, its own glow layer replaces the
     // hand-placed lights (which sit on the code-drawn windows and lamps).
     const art = (id) => has(`mw_${id}_${L(id)}`);
+    if (!tock) {
     // kept gentle: at full strength the halos bleach the buildings to flat yellow
     const halo = (id, i) => slot(ctx, `mw_${id}_${L(id)}`, { glow: true, alpha: 0.34 + Math.sin(t * 2.6 + i * 1.7) * 0.08 });
     additive(ctx, () => {
@@ -1021,18 +1102,22 @@ function createWorldView(getState) {
       circle(ctx, x - 1.1, y - 3.2 - hop, 0.6);
       circle(ctx, x + 1.1, y - 3.2 - hop, 0.6);
     }
+    } // (Mistlewick only)
 
     // befriended creatures live here
-    for (const id of ['nimbit', 'sprigget', 'whistlewing']) {
+    for (const id of residents(st)) {
       if (!st.creatures[id]) continue;
       const c = critters[id];
-      const hop = Math.sin(Math.min(1, c.hop) * Math.PI) * 9;
+      // Springle never walks: it bounces everywhere
+      const spring = c.bouncy && c.pause <= 0 ? Math.abs(Math.sin(t * 5.2)) * 7 : 0;
+      const hop = Math.sin(Math.min(1, c.hop) * Math.PI) * 9 + spring;
       const y = c.y - hop;
-      if (id !== 'whistlewing') {
+      if (!c.fly) {
         ctx.fillStyle = 'rgba(40,30,90,.18)';
         ellipse(ctx, c.x, c.y + 15, 12 - hop * 0.4, 3);
       }
-      drawCreature(ctx, id, c.x, y, has(id + '_idle') ? CREATURE_SCALE : 1.05, t, { happy: c.happy > 0, flip: c.dir === -1 });
+      // painted creatures and Tocktown's code-drawn ones are shown large; the old code-drawn Mistlewick ones stay small
+      drawCreature(ctx, id, c.x, y, has(id + '_idle') || tock ? CREATURE_SCALE : 1.05, t, { happy: c.happy > 0, flip: c.dir === -1 });
       [c.sx, c.sy] = toScreen(c.x, y, bob);
     }
 
@@ -1061,18 +1146,23 @@ function createWorldView(getState) {
         glow(ctx, f.x, f.y, f.r * (2.2 + tw), f.c, 0.25 + tw * 0.5);
       }
       // a slow twinkle on the cases still waiting
-      TEASERS.forEach((tz, i) => glow(ctx, tz.x - 4, tz.y - tz.r * 1.5, 7, '#c4eee6', Math.max(0, Math.sin(t * 1.1 + i * 2.4)) * 0.5));
+      teasers(st).forEach((tz, i) => {
+        const open = tz.world && isUnlocked(st, tz.world);
+        // an open case glows steadily, so it reads as somewhere to go
+        if (open) glow(ctx, tz.x, tz.y - tz.r, tz.r * 1.5, '#ffd98a', 0.3 + Math.sin(t * 2.2) * 0.12);
+        glow(ctx, tz.x - 4, tz.y - tz.r * 1.5, 7, open ? '#fff3c4' : '#c4eee6', Math.max(0, Math.sin(t * 1.1 + i * 2.4)) * 0.5);
+      });
     });
     ctx.restore();
 
-    band(ctx, 'mw_fore_mist', W, geom.oy + 436 * geom.s);
+    if (!tock) band(ctx, 'mw_fore_mist', W, geom.oy + 436 * geom.s);
     fx.draw(ctx);
   }
 
   /** Tap test in screen coords. Returns the creature id that was greeted, if any. */
   function tap(x, y) {
     const st = getState();
-    for (const id of ['whistlewing', 'sprigget', 'nimbit']) {
+    for (const id of residents(st).slice().reverse()) {
       const c = critters[id];
       if (!st.creatures[id]) continue;
       if (Math.hypot(x - c.sx, y - c.sy) < 30 * geom.s + 8) {
@@ -1086,24 +1176,24 @@ function createWorldView(getState) {
     return null;
   }
 
-  /** Tap test for the cases waiting on the desk. Returns 0, 1 or -1. */
+  /** Tap test for the other cases on the desk. Returns the teaser tapped, or null. */
   function tapTeaser(x, y) {
-    for (let i = 0; i < TEASERS.length; i++) {
-      const [sx, sy] = toScreen(TEASERS[i].x, TEASERS[i].y - TEASERS[i].r);
-      if (Math.hypot(x - sx, y - sy) < TEASERS[i].r * geom.s + 12) return i;
+    for (const tz of teasers(getState())) {
+      const [sx, sy] = toScreen(tz.x, tz.y - tz.r);
+      if (Math.hypot(x - sx, y - sy) < tz.r * geom.s + 12) return tz;
     }
-    return -1;
+    return null;
   }
 
   /** Sparkle burst where an upgrade was just built. */
   function celebrate(id) {
-    const a = ANCHOR[id];
+    const a = ANCHOR[id] || TOCK_ANCHOR[id];
     if (!a) return;
-    const [x, y] = toScreen(a[0], a[1], id === 'teapot' ? 0 : bobNow());
+    const [x, y] = toScreen(a[0], a[1], id === 'teapot' || id === 'mainspring' ? 0 : bobNow());
     fx.emit(x, y, { n: 38, color: ['#ffcf5c', '#fff3c4', '#ff8fa3', '#7fe3d8'], speed: [30, 190], life: [0.5, 1.3], size: [2, 5], gravity: 60, drag: 1.8 });
   }
 
-  return { update, draw, tap, tapTeaser, celebrate, anchorScreen: (id) => toScreen(ANCHOR[id][0], ANCHOR[id][1]), invalidate: () => (key = '') };
+  return { update, draw, tap, tapTeaser, celebrate, anchorScreen: (id) => toScreen((ANCHOR[id] || TOCK_ANCHOR[id])[0], (ANCHOR[id] || TOCK_ANCHOR[id])[1]), invalidate: () => (key = '') };
 }
 
 export { createWorldView };

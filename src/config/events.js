@@ -44,7 +44,8 @@ const TRAILS = {
   default: { name: 'Ember', colors: ['#fff3c4', '#ffcf5c', '#ff9d2e'] },
   trail_comet: { name: 'Comet', colors: ['#ffffff', '#9ad8ff', '#6f7dff'] },
   trail_festival: { name: 'Festival', colors: ['#fff0f3', '#ff8fa3', '#ffcf5c'] },
-  trail_rally: { name: 'Rally', colors: ['#f0fff7', '#7fe3d8', '#7be0a0'] }
+  trail_rally: { name: 'Rally', colors: ['#f0fff7', '#7fe3d8', '#7be0a0'] },
+  trail_brass: { name: 'Brass', colors: ['#fff6d6', '#f5b942', '#b8732a'] }
 };
 
 export { EVENT_CYCLE_HOURS, EVENT_UNLOCK_RANK, EVENTS, TRAILS };

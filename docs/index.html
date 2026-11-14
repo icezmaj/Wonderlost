@@ -541,6 +541,10 @@ body {
   .hint, #ui .chip.done, #ui .pulse, .pill.bump, .rcard, .toast { animation: none; }
   .sheet.in, .bar i { transition: none; }
 }
+
+/* a world you can travel to, in the "also on the desk" list */
+.soon-row.go { flex-direction: row; align-items: center; justify-content: space-between; gap: 0.8em; }
+.soon-row.go > span { display: flex; flex-direction: column; min-width: 0; }
 </style>
 </head><body>
 <div id="app"><canvas id="stage"></canvas><div id="ui"></div></div>
@@ -576,6 +580,10 @@ const TUNING = {
   settleSeconds: 1.1,
   baseRekindles: 1,
   hearthWidth: 78,
+  hearthMaxScale: 1.6, // companion and upgrade bonuses together never widen the Hearth past this
+  cogRadius: 20,
+  cogFling: 230, // sideways speed a charged spinning cog adds
+  cogValue: 7, // Glow per charged cog hit (cogs replace some bell blooms, so they pay more)
 
   // --- Chains: gathers inside the window build a chain; tiers multiply Glow ---
   chainWindow: 1.5,
@@ -636,9 +644,14 @@ __m['src/config/worlds.js'] = (function () {
 //
 // Upgrade `fx` keys are summed across purchased levels into dive/economy modifiers:
 //   sparkCap, homeMult, moteBonus, lanternValue, hollowBonus, bumpers,
-//   bumperValue, geysers
+//   bumperValue, geysers, chainWindow (seconds), cogs, hearthGrow (fraction)
+// Upgrades from every world add up: what you restored in one world still
+// helps in the next.
 // Creature `mods` apply only while that creature is the active companion:
-//   extraRekindles, magnet, hearthScale
+//   extraRekindles, magnet, hearthScale, chainBonus (seconds), bounceBonus
+//
+// `unlock` gates a world behind progress in an earlier one. `dive` picks the
+// look and layout of that world's hollows (see sim/level.js, render/diveView.js).
 
 const WORLDS = {
   mistlewick: {
@@ -647,6 +660,9 @@ const WORLDS = {
     caseNo: '001',
     object: 'A cracked teapot',
     tagline: 'A cloud village asleep inside a broken teapot.',
+    titleLine: 'Something inside it is still warm.',
+    homeWord: 'Village',
+    dive: { theme: 'mist', layout: 'rows', into: 'the teapot' },
 
     upgrades: [
       {
@@ -776,14 +792,154 @@ const WORLDS = {
         { id: 'whistle', name: 'Steam Whistle', lore: 'One breath wakes every lantern in the lane.' }
       ]
     }
+  },
+
+  tocktown: {
+    id: 'tocktown',
+    name: 'Tocktown',
+    caseNo: '002',
+    object: 'A stopped pocket watch',
+    tagline: 'A clockwork town frozen at one minute to midnight.',
+    titleLine: 'It stopped at one minute to midnight.',
+    homeWord: 'Town',
+    unlock: { world: 'mistlewick', levels: 12 },
+    dive: { theme: 'brass', layout: 'dial', into: 'the pocket watch' },
+
+    upgrades: [
+      {
+        id: 'mainspring',
+        name: 'Mainspring',
+        blurb: 'Wind the great spring so the town can tick again.',
+        unlockAt: 0,
+        levels: [
+          { cost: 300, fx: { sparkCap: 1 }, note: '+1 Spark capacity' },
+          { cost: 800, fx: { sparkCap: 1 }, note: '+1 Spark capacity' },
+          { cost: 1700, fx: { sparkCap: 1 }, note: '+1 Spark capacity' }
+        ]
+      },
+      {
+        id: 'clocktower',
+        name: 'Midnight Tower',
+        blurb: 'Coax the tower clock past one minute to midnight.',
+        unlockAt: 1,
+        levels: [
+          { cost: 400, fx: { chainWindow: 0.2 }, note: 'Chains last 0.2s longer' },
+          { cost: 1000, fx: { chainWindow: 0.2 }, note: 'Chains last 0.4s longer' },
+          { cost: 2000, fx: { chainWindow: 0.2 }, note: 'Chains last 0.6s longer' }
+        ]
+      },
+      {
+        id: 'gearworks',
+        name: 'Gearworks',
+        blurb: 'Oil the big cogs. A spinning cog flings your Spark sideways.',
+        unlockAt: 1,
+        levels: [
+          { cost: 450, fx: { cogs: 1 }, note: '+1 spinning cog in every Tocktown hollow' },
+          { cost: 1100, fx: { cogs: 1 }, note: '+1 spinning cog in every Tocktown hollow' },
+          { cost: 2200, fx: { cogs: 1 }, note: '+1 spinning cog in every Tocktown hollow' }
+        ]
+      },
+      {
+        id: 'lamprow',
+        name: "Lamplighter's Row",
+        blurb: 'Relight the street lamps along the minute hand.',
+        unlockAt: 3,
+        levels: [
+          { cost: 600, fx: { lanternValue: 4, hollowBonus: 15 }, note: 'Lanterns and awakenings give more Glow' },
+          { cost: 1400, fx: { lanternValue: 4, hollowBonus: 15 }, note: 'Lanterns and awakenings give more Glow' },
+          { cost: 2600, fx: { lanternValue: 5, hollowBonus: 20 }, note: 'Lanterns and awakenings give more Glow' }
+        ]
+      },
+      {
+        id: 'pendulum',
+        name: 'Pendulum Hall',
+        blurb: 'Set the long pendulum swinging over the Hearth.',
+        unlockAt: 3,
+        levels: [
+          { cost: 700, fx: { hearthGrow: 0.08 }, note: 'The Hearth is 8% wider' },
+          { cost: 1500, fx: { hearthGrow: 0.08 }, note: 'The Hearth is 16% wider' },
+          { cost: 2800, fx: { hearthGrow: 0.08 }, note: 'The Hearth is 24% wider' }
+        ]
+      },
+      {
+        id: 'market',
+        name: 'Tick-Tock Market',
+        blurb: 'Open the stalls. Everything is sold by the second.',
+        unlockAt: 5,
+        levels: [
+          { cost: 900, fx: { moteBonus: 0.15 }, note: '+15% motes in every hollow' },
+          { cost: 1800, fx: { moteBonus: 0.15 }, note: '+30% motes in every hollow' },
+          { cost: 3200, fx: { moteBonus: 0.2 }, note: '+50% motes in every hollow' }
+        ]
+      }
+    ],
+
+    creatures: [
+      {
+        id: 'tocklet',
+        name: 'Tocklet',
+        rarity: 'Common',
+        persona: 'A wind-up mouse who salutes every time something chimes.',
+        arrives: { always: true, hint: 'Asleep in a bubble in the first Tocktown hollow.' },
+        chance: 1,
+        ability: { name: 'Steady Tick', text: 'Chains last 0.4s longer', mods: { chainBonus: 0.4 } },
+        notes: [
+          'Needs winding twice a day. Pretends it does not.',
+          'Keeps a list of every clock that is wrong. The list is long.',
+          'Will hold a door for exactly one second, then apologise.'
+        ]
+      },
+      {
+        id: 'springle',
+        name: 'Springle',
+        rarity: 'Uncommon',
+        persona: 'A coil-spring hopper that cannot stand still and has stopped trying.',
+        arrives: { upgrade: 'gearworks', level: 1, hint: 'Arrives once the Gearworks turns again.' },
+        chance: 0.6,
+        ability: { name: 'Extra Bounce', text: 'Cogs and bell blooms give +2 Glow', mods: { bounceBonus: 2 } },
+        notes: [
+          'Measures distance in boings.',
+          'Once bounced clean over the Midnight Tower. Nobody saw. It is still upset.',
+          'Sleeps upside down so it wakes up already falling.'
+        ]
+      },
+      {
+        id: 'hourmoth',
+        name: 'Hourmoth',
+        rarity: 'Rare',
+        persona: 'An hourglass moth that only ever flew at one minute to midnight.',
+        arrives: { upgrade: 'pendulum', level: 1, hint: 'Arrives once the pendulum swings again.' },
+        chance: 0.35,
+        moving: true,
+        ability: { name: 'Borrowed Minute', text: '+1 Rekindle and a 20% wider Hearth', mods: { extraRekindles: 1, hearthScale: 1.2 } },
+        notes: [
+          'Drifts side to side inside its bubble, like sand deciding.',
+          'Its wings keep the last minute of every day.',
+          'Lands on the Hearth when it thinks you are not looking.'
+        ]
+      }
+    ],
+
+    artifactSet: {
+      id: 'last_minute',
+      name: 'Regalia of the Last Minute',
+      reward: { glow: 600, cosmetic: 'trail_brass', label: 'Brass trail for your Spark + a full moon over Tocktown' },
+      items: [
+        { id: 'windkey', name: 'Winding Key', lore: 'Turns once a century, and only for a friend.' },
+        { id: 'escapement', name: 'Tiny Escapement', lore: 'Lets time out one tick at a time.' },
+        { id: 'hairspring', name: 'Silver Hairspring', lore: 'Coiled so tight it hums.' },
+        { id: 'moondial', name: 'Moon Dial', lore: 'Shows what the moon is doing, not what time it is.' },
+        { id: 'chime', name: 'Midnight Chime', lore: 'Has never once been rung. It has been waiting.' },
+        { id: 'lens', name: "Watchmaker's Lens", lore: 'Makes small things matter.' }
+      ]
+    }
   }
 };
 
-const WORLD_ORDER = ['mistlewick'];
+const WORLD_ORDER = ['mistlewick', 'tocktown'];
 
 // PLACEHOLDER: later worlds exist only as teasers in this slice.
 const COMING_SOON = [
-  { name: 'Tocktown', object: 'A stopped pocket watch', tagline: 'A clockwork kingdom frozen at one minute to midnight.' },
   { name: 'Hushfall', object: 'A forgotten snow globe', tagline: 'A winter city waiting for its first snowfall in years.' },
   { name: 'Neon Reverie', object: 'An old radio', tagline: 'A musical universe humming between two stations.' }
 ];
@@ -797,9 +953,9 @@ __m['src/progression/state.js'] = (function () {
 // except regenSparks(), which is pure bookkeeping against a supplied clock.
 
 const { TUNING: T } = __m['src/config/tuning.js'];
-const { WORLDS } = __m['src/config/worlds.js'];
+const { WORLDS, WORLD_ORDER } = __m['src/config/worlds.js'];
 
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 
 /** @returns a brand-new player state. `now` is epoch milliseconds. */
 function newState(now) {
@@ -821,12 +977,14 @@ function newState(now) {
     artifacts: {}, // id -> count
     echoes: 0,
     lastWasDup: false,
-    setRewarded: false,
+    sets: {}, // artifact set id -> true once its reward was granted
     cosmetics: ['default'],
     trail: 'default',
 
-    hollow: null, // current dive field; see actions.ensureHollow
+    hollow: null, // current dive field in the current world; see actions.ensureHollow
     hollowCount: 0,
+    byWorld: {}, // worldId -> { hollow, hollowCount } for worlds the player is not in right now
+    wstats: {}, // worldId -> counters earned in that world (for its case files)
 
     stats: {
       dives: 0,
@@ -868,14 +1026,21 @@ function modsOf(s) {
     hollowBonus: 0,
     bumpers: 0,
     bumperValue: 0,
-    geysers: 0
+    geysers: 0,
+    chainWindow: 0,
+    cogs: 0,
+    hearthGrow: 0
   };
-  const world = worldOf(s);
-  for (const up of world.upgrades) {
-    const lvl = upgradeLevel(s, up.id);
-    for (let i = 0; i < lvl; i++) for (const k in up.levels[i].fx) m[k] += up.levels[i].fx[k];
+  // restoration is permanent: every world's upgrades count, wherever you dive
+  for (const id of WORLD_ORDER) {
+    for (const up of WORLDS[id].upgrades) {
+      const lvl = upgradeLevel(s, up.id);
+      for (let i = 0; i < lvl; i++) for (const k in up.levels[i].fx) m[k] += up.levels[i].fx[k];
+    }
   }
-  const comp = world.creatures.find((c) => c.id === s.companion);
+  // a friend from any world can travel with you
+  let comp = null;
+  for (const id of WORLD_ORDER) comp = comp || WORLDS[id].creatures.find((c) => c.id === s.companion);
   if (comp && s.creatures[comp.id]) Object.assign(m, comp.ability.mods);
   return m;
 }
@@ -883,17 +1048,27 @@ function modsOf(s) {
 const sparkCap = (s) => T.sparkCap + modsOf(s).sparkCap;
 
 /** Total upgrade levels bought in the current world. */
-function totalLevels(s) {
+function totalLevels(s, worldId = s.worldId) {
   let n = 0;
-  for (const up of worldOf(s).upgrades) n += upgradeLevel(s, up.id);
+  for (const up of WORLDS[worldId].upgrades) n += upgradeLevel(s, up.id);
   return n;
 }
 
-function maxLevels(s) {
+function maxLevels(s, worldId = s.worldId) {
   let n = 0;
-  for (const up of worldOf(s).upgrades) n += up.levels.length;
+  for (const up of WORLDS[worldId].upgrades) n += up.levels.length;
   return n;
 }
+
+/** How many more restorations in an earlier world a locked world still needs (0 = open). */
+function unlockNeed(s, worldId) {
+  const u = WORLDS[worldId] && WORLDS[worldId].unlock;
+  return u ? Math.max(0, u.levels - totalLevels(s, u.world)) : 0;
+}
+const isUnlocked = (s, worldId) => !!WORLDS[worldId] && unlockNeed(s, worldId) === 0;
+
+/** Has this world's artifact set been completed and rewarded? */
+const setDone = (s, worldId = s.worldId) => !!s.sets[WORLDS[worldId].artifactSet.id];
 
 /** 0..1 restoration of the current world. Drives how alive the diorama looks. */
 const restoration = (s) => totalLevels(s) / maxLevels(s);
@@ -964,7 +1139,7 @@ function upgradeOffer(s, up) {
 
 const anyAffordable = (s) => worldOf(s).upgrades.some((up) => upgradeOffer(s, up).affordable);
 
-return { SAVE_VERSION, newState, worldOf, upgradeLevel, modsOf, sparkCap, totalLevels, maxLevels, restoration, rankOf, bondLevel, regenSparks, nextSparkIn, upgradeOffer, anyAffordable };
+return { SAVE_VERSION, newState, worldOf, upgradeLevel, modsOf, sparkCap, totalLevels, maxLevels, unlockNeed, isUnlocked, setDone, restoration, rankOf, bondLevel, regenSparks, nextSparkIn, upgradeOffer, anyAffordable };
 })();
 
 // ---- src/persistence/save.js ----
@@ -977,6 +1152,7 @@ __m['src/persistence/save.js'] = (function () {
 // economy replace it before any real-money feature ships (docs/GDD.md, s.10).
 
 const { newState, SAVE_VERSION } = __m['src/progression/state.js'];
+const { WORLDS } = __m['src/config/worlds.js'];
 
 const SAVE_KEY = 'wonderlost.save';
 
@@ -1039,7 +1215,14 @@ function fill(defaults, raw) {
 
 // Step-by-step upgrades between save versions: MIGRATIONS[n] turns v(n) into v(n+1).
 const MIGRATIONS = {
-  0: (raw) => ({ ...raw, v: 1 })
+  0: (raw) => ({ ...raw, v: 1 }),
+  // v2: a second world. The single "set rewarded" flag becomes one per set.
+  1: (raw) => {
+    const out = { ...raw, v: 2, sets: { ...(raw.sets || {}) } };
+    if (raw.setRewarded) out.sets.first_dawn = true;
+    delete out.setRewarded;
+    return out;
+  }
 };
 
 /** Bring any older (or partial) save up to the current shape. */
@@ -1054,6 +1237,7 @@ function migrate(raw, now) {
   }
   const state = fill(newState(now), data);
   state.v = SAVE_VERSION;
+  if (!WORLDS[state.worldId]) state.worldId = 'mistlewick';
   // Guard numeric balances against hand-edited or damaged values.
   for (const k of ['glow', 'sparks', 'xp', 'echoes']) {
     if (!Number.isFinite(state[k]) || state[k] < 0) state[k] = 0;
@@ -1177,6 +1361,8 @@ const SCHEMA = {
   sparks_depleted: ['next_in'],
   setting_changed: ['key', 'value'],
   sheet_opened: ['sheet'],
+  world_opened: ['world'],
+  world_travel: ['world', 'first'],
   save_reset: []
 };
 
@@ -1548,7 +1734,9 @@ return { mulberry32, hashSeed, range, pick, shuffle };
 __m['src/config/objectives.js'] = (function () {
 // Case files (one-at-a-time onboarding + early-game goals) and daily tasks.
 // `metric` names a counter in state.stats; a case is complete when the
-// lifetime counter reaches `target`. Daily tasks count from the start of the day.
+// lifetime counter reaches `target`. A case with `world` counts only what
+// happened in that world (state.wstats) and waits until that world is open.
+// Daily tasks count from the start of the day.
 
 const CASE_FILES = [
   { id: 'first_spark', text: 'Launch a Spark into the teapot', metric: 'dives', target: 1, reward: { glow: 20 } },
@@ -1569,7 +1757,19 @@ const CASE_FILES = [
   { id: 'build12', text: 'Restore 12 things in Mistlewick', metric: 'upgradesBought', target: 12, reward: { sparks: 5 }, nudge: 'restore' },
   { id: 'artifacts4', text: 'Recover 4 different artifacts', metric: 'artifactsOwned', target: 4, reward: { glow: 150 }, nudge: 'finds' },
   { id: 'creature3', text: 'Befriend all three creatures', metric: 'creaturesFound', target: 3, reward: { sparks: 5 }, nudge: 'finds' },
-  { id: 'restore_all', text: 'Fully restore Mistlewick', metric: 'upgradesBought', target: 18, reward: { glow: 500 }, nudge: 'restore' }
+  { id: 'restore_all', text: 'Fully restore Mistlewick', metric: 'upgradesBought', target: 18, reward: { glow: 500 }, nudge: 'restore' },
+
+  // ---- Case 002: Tocktown ----
+  { id: 'tt_open', world: 'tocktown', text: 'Launch a Spark into the pocket watch', metric: 'dives', target: 1, reward: { sparks: 3 } },
+  { id: 'tt_wind', world: 'tocktown', text: 'Wind the Mainspring', metric: 'upgradesBought', target: 1, reward: { glow: 150 }, nudge: 'restore' },
+  { id: 'tt_friend', world: 'tocktown', text: 'Befriend a Tocktown creature', metric: 'creaturesFound', target: 1, reward: { sparks: 3 }, nudge: 'finds' },
+  { id: 'tt_lamps', world: 'tocktown', text: 'Light 8 lanterns in Tocktown', metric: 'lanternsLit', target: 8, reward: { glow: 150 } },
+  { id: 'tt_build3', world: 'tocktown', text: 'Restore 3 things in Tocktown', metric: 'upgradesBought', target: 3, reward: { sparks: 4 }, nudge: 'restore' },
+  { id: 'tt_cogs', world: 'tocktown', text: 'Ride spinning cogs 10 times', metric: 'cogHits', target: 10, reward: { glow: 200 } },
+  { id: 'tt_hollows', world: 'tocktown', text: 'Awaken 5 hollows in Tocktown', metric: 'hollowsAwakened', target: 5, reward: { glow: 300 } },
+  { id: 'tt_relics', world: 'tocktown', text: 'Recover 3 pieces of the Regalia', metric: 'artifactsOwned', target: 3, reward: { sparks: 5 }, nudge: 'finds' },
+  { id: 'tt_build10', world: 'tocktown', text: 'Restore 10 things in Tocktown', metric: 'upgradesBought', target: 10, reward: { glow: 400 }, nudge: 'restore' },
+  { id: 'tt_all', world: 'tocktown', text: 'Fully restore Tocktown', metric: 'upgradesBought', target: 18, reward: { glow: 1000 }, nudge: 'restore' }
 ];
 
 // Three of these are offered each local day (seeded by the date). No streaks,
@@ -1596,6 +1796,8 @@ __m['src/progression/objectives.js'] = (function () {
 const { CASE_FILES, DAILY_POOL, DAILY_COUNT } = __m['src/config/objectives.js'];
 const { mulberry32, hashSeed, shuffle } = __m['src/core/rng.js'];
 const { dayKey } = __m['src/core/util.js'];
+const { WORLDS } = __m['src/config/worlds.js'];
+const { unlockNeed } = __m['src/progression/state.js'];
 
 /**
  * Apply a reward bundle { glow?, sparks?, cosmetic? }.
@@ -1618,8 +1820,18 @@ const activeCase = (s) => CASE_FILES[s.caseIdx] || null;
 function caseProgress(s) {
   const c = activeCase(s);
   if (!c) return null;
-  const value = Math.min(c.target, s.stats[c.metric] || 0);
-  return { c, value, done: value >= c.target, index: s.caseIdx, total: CASE_FILES.length };
+  // A case that belongs to a world not opened yet waits, and says what opens it.
+  const need = c.world ? unlockNeed(s, c.world) : 0;
+  const counters = c.world ? s.wstats[c.world] || {} : s.stats;
+  const value = need ? 0 : Math.min(c.target, counters[c.metric] || 0);
+  const locked = need ? { need, world: WORLDS[c.world], gate: WORLDS[WORLDS[c.world].unlock.world] } : null;
+  return { c, value, done: value >= c.target, locked, index: s.caseIdx, total: CASE_FILES.length };
+}
+
+/** Count something that happened in the current world (for that world's cases). */
+function bumpWorld(s, metric, n = 1) {
+  const w = (s.wstats[s.worldId] = s.wstats[s.worldId] || {});
+  w[metric] = (w[metric] || 0) + n;
 }
 
 /** Claim the active case if complete. Returns the claimed case or null. */
@@ -1667,7 +1879,7 @@ function claimDaily(s, id) {
 
 const dailyClaimable = (s) => dailyList(s).some((r) => r.done && !r.claimed);
 
-return { grant, activeCase, caseProgress, claimCase, refreshDaily, dailyList, claimDaily, dailyClaimable };
+return { grant, activeCase, caseProgress, bumpWorld, claimCase, refreshDaily, dailyList, claimDaily, dailyClaimable };
 })();
 
 // ---- src/config/events.js ----
@@ -1718,7 +1930,8 @@ const TRAILS = {
   default: { name: 'Ember', colors: ['#fff3c4', '#ffcf5c', '#ff9d2e'] },
   trail_comet: { name: 'Comet', colors: ['#ffffff', '#9ad8ff', '#6f7dff'] },
   trail_festival: { name: 'Festival', colors: ['#fff0f3', '#ff8fa3', '#ffcf5c'] },
-  trail_rally: { name: 'Rally', colors: ['#f0fff7', '#7fe3d8', '#7be0a0'] }
+  trail_rally: { name: 'Rally', colors: ['#f0fff7', '#7fe3d8', '#7be0a0'] },
+  trail_brass: { name: 'Brass', colors: ['#fff6d6', '#f5b942', '#b8732a'] }
 };
 
 return { EVENT_CYCLE_HOURS, EVENT_UNLOCK_RANK, EVENTS, TRAILS };
@@ -1791,8 +2004,9 @@ __m['src/progression/actions.js'] = (function () {
 
 const { TUNING: T } = __m['src/config/tuning.js'];
 const { mulberry32, hashSeed, pick } = __m['src/core/rng.js'];
-const { worldOf, modsOf, rankOf, bondLevel, upgradeLevel, upgradeOffer, totalLevels, maxLevels, regenSparks } = __m['src/progression/state.js'];
-const { grant } = __m['src/progression/objectives.js'];
+const { worldOf, modsOf, rankOf, bondLevel, upgradeLevel, upgradeOffer, totalLevels, maxLevels, regenSparks, isUnlocked } = __m['src/progression/state.js'];
+const { grant, bumpWorld } = __m['src/progression/objectives.js'];
+const { WORLDS, WORLD_ORDER } = __m['src/config/worlds.js'];
 const { addEventPoints } = __m['src/progression/events.js'];
 
 const creatureArrived = (s, c) => c.arrives.always || upgradeLevel(s, c.arrives.upgrade) >= c.arrives.level;
@@ -1861,9 +2075,9 @@ function startDive(s, now) {
 }
 
 function checkSetComplete(s, world) {
-  if (s.setRewarded) return false;
+  if (s.sets[world.artifactSet.id]) return false;
   if (!world.artifactSet.items.every((it) => s.artifacts[it.id])) return false;
-  s.setRewarded = true;
+  s.sets[world.artifactSet.id] = true;
   grant(s, world.artifactSet.reward);
   return true;
 }
@@ -1887,6 +2101,7 @@ function drawArtifact(s, world, rng) {
     s.artifacts[it.id] = 1;
     s.lastWasDup = false;
     s.stats.artifactsOwned++;
+    bumpWorld(s, 'artifactsOwned');
     return { id: it.id, isNew: true, setComplete: checkSetComplete(s, world) };
   }
   const it = pick(rng, owned);
@@ -1903,6 +2118,7 @@ function craftArtifact(s, id) {
   s.echoes -= T.echoCost;
   s.artifacts[id] = 1;
   s.stats.artifactsOwned++;
+  bumpWorld(s, 'artifactsOwned');
   return { id, setComplete: checkSetComplete(s, world) };
 }
 
@@ -1912,6 +2128,7 @@ function befriend(s, id) {
   if (!was) {
     s.creatures[id] = { bond: 1 };
     s.stats.creaturesFound++;
+    bumpWorld(s, 'creaturesFound');
     if (!s.companion) s.companion = id;
   } else {
     was.bond++;
@@ -1963,6 +2180,7 @@ function settleDive(s, result, now, practice = false) {
     sum.homeBonus = Math.round(result.gathered * mods.homeMult) - result.gathered;
     total += sum.homeBonus;
     s.stats.homecomings++;
+    bumpWorld(s, 'homecomings');
   }
   if (result.gotRelic && h.relic && !h.relicTaken) {
     h.relicTaken = true;
@@ -1981,6 +2199,7 @@ function settleDive(s, result, now, practice = false) {
     sum.hollowBonus = T.hollowBonus + mods.hollowBonus;
     total += sum.hollowBonus;
     s.stats.hollowsAwakened++;
+    bumpWorld(s, 'hollowsAwakened');
     if (h.dives <= T.swiftDives) {
       sum.sparkRefund = 1;
       s.sparks++;
@@ -1995,6 +2214,9 @@ function settleDive(s, result, now, practice = false) {
   st.lanternsLit += result.lanternsLitNow;
   st.rekindlesUsed += result.rekindlesUsed;
   st.bumperHits += result.bumperHits;
+  bumpWorld(s, 'dives');
+  bumpWorld(s, 'lanternsLit', result.lanternsLitNow);
+  if (result.cogHits) bumpWorld(s, 'cogHits', result.cogHits);
   if (result.bestChain > st.bestChain) st.bestChain = result.bestChain;
   if (total > st.bestDive) st.bestDive = total;
 
@@ -2011,11 +2233,29 @@ function buyUpgrade(s, id) {
   if (offer.locked) return { ok: false, reason: 'locked' };
   if (offer.maxed) return { ok: false, reason: 'maxed' };
   if (s.glow < offer.cost) return { ok: false, reason: 'glow', short: offer.cost - s.glow };
+  const lockedBefore = WORLD_ORDER.filter((w) => !isUnlocked(s, w));
   s.glow -= offer.cost;
   s.upgrades[id] = offer.lvl + 1;
   s.stats.upgradesBought++;
+  bumpWorld(s, 'upgradesBought');
   const rankUps = addXp(s, offer.cost * 0.5);
-  return { ok: true, id, level: offer.lvl + 1, cost: offer.cost, rankUps, worldComplete: totalLevels(s) === maxLevels(s) };
+  const opened = lockedBefore.filter((w) => isUnlocked(s, w)).map((w) => WORLDS[w]);
+  return { ok: true, id, level: offer.lvl + 1, cost: offer.cost, rankUps, opened, worldComplete: totalLevels(s) === maxLevels(s) };
+}
+
+/**
+ * Move to another open world. Each world keeps its own unfinished hollow and
+ * hollow count; everything else (Glow, Sparks, rank, friends) comes along.
+ */
+function travel(s, worldId) {
+  if (!WORLDS[worldId] || worldId === s.worldId) return { ok: false, reason: 'same' };
+  if (!isUnlocked(s, worldId)) return { ok: false, reason: 'locked' };
+  s.byWorld[s.worldId] = { hollow: s.hollow, hollowCount: s.hollowCount };
+  const there = s.byWorld[worldId] || { hollow: null, hollowCount: 0 };
+  s.worldId = worldId;
+  s.hollow = there.hollow;
+  s.hollowCount = there.hollowCount;
+  return { ok: true, world: WORLDS[worldId], first: there.hollowCount === 0 };
 }
 
 function setCompanion(s, id) {
@@ -2034,7 +2274,7 @@ function petCreature(s) {
   s.stats.pets++;
 }
 
-return { addXp, ensureHollow, startDive, drawArtifact, craftArtifact, settleDive, buyUpgrade, setCompanion, setTrail, petCreature };
+return { addXp, ensureHollow, startDive, drawArtifact, craftArtifact, settleDive, buyUpgrade, travel, setCompanion, setTrail, petCreature };
 })();
 
 // ---- src/render/gfx.js ----
@@ -2551,6 +2791,9 @@ function drawCreature(ctx, id, x, y, s, t, opts = {}) {
   if (id === 'nimbit') nimbit(ctx, t, blink, opts);
   else if (id === 'sprigget') sprigget(ctx, t, blink, opts);
   else if (id === 'whistlewing') whistlewing(ctx, t, blink, opts);
+  else if (id === 'tocklet') tocklet(ctx, t, blink, opts);
+  else if (id === 'springle') springle(ctx, t, blink, opts);
+  else if (id === 'hourmoth') hourmoth(ctx, t, blink, opts);
   ctx.restore();
 }
 
@@ -2692,6 +2935,151 @@ function whistlewing(ctx, t, blink, o) {
   }
 }
 
+// Tocklet: a wind-up mouse with a brass key in its back.
+function tocklet(ctx, t, blink, o) {
+  const bob = Math.sin(t * 3) * 0.6;
+  const turn = o.asleep ? 0 : t * 2.4;
+  // winding key
+  ctx.save();
+  ctx.translate(-8.5, -3 + bob);
+  ctx.strokeStyle = '#a8742a';
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-4, -2);
+  ctx.stroke();
+  ctx.fillStyle = '#f5b942';
+  ellipse(ctx, -6, -3 + Math.sin(turn) * 0.4, 1.8, 3.6 * Math.abs(Math.cos(turn)) + 0.8);
+  ctx.restore();
+  // tail
+  ctx.strokeStyle = '#f4a6b4';
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.moveTo(-7, 7 + bob);
+  ctx.quadraticCurveTo(-14, 10, -12, 3 + Math.sin(t * 2) * 1.5);
+  ctx.stroke();
+  // feet
+  ctx.fillStyle = '#f4a6b4';
+  ellipse(ctx, -3.6, 10.4, 2.6, 1.5);
+  ellipse(ctx, 4.4, 10.4, 2.6, 1.5);
+  // ears
+  ctx.fillStyle = '#c9b8a8';
+  circle(ctx, -5.5, -7 + bob, 4.8);
+  circle(ctx, 6, -7.5 + bob, 4.8);
+  ctx.fillStyle = '#f4a6b4';
+  circle(ctx, -5.5, -7 + bob, 2.8);
+  circle(ctx, 6, -7.5 + bob, 2.8);
+  // body
+  ctx.fillStyle = '#c9b8a8';
+  ellipse(ctx, 0, 3.4 + bob, 9.4, 8);
+  ctx.fillStyle = '#efe4d6';
+  ellipse(ctx, 0.4, 2 + bob, 8.8, 7.4);
+  ctx.fillStyle = '#fff6e2';
+  ellipse(ctx, 1.4, 5.4 + bob, 5, 4);
+  // brass seam and rivet: it is clockwork, after all
+  ctx.strokeStyle = 'rgba(168,116,42,.55)';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.arc(0.4, 2 + bob, 8.2, 0.62 * Math.PI, 0.95 * Math.PI);
+  ctx.stroke();
+  eyes(ctx, 3.4, 0.6 + bob, 1.5, blink);
+  cheeks(ctx, 6.2, 3.2 + bob, 1.8);
+  ctx.fillStyle = '#c9647a';
+  circle(ctx, 0.6, 2.6 + bob, 1);
+  smile(ctx, 3.2 + bob, 1.4, o.happy);
+}
+
+// Springle: a coil-spring hopper. The spring squashes and stretches.
+function springle(ctx, t, blink, o) {
+  const sq = o.asleep ? 0 : Math.sin(t * 5.2);
+  const h = 9 + sq * 2.4;
+  ctx.strokeStyle = '#a8742a';
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    const y = 10 - (i / 3.4) * h;
+    ctx.strokeStyle = i % 2 ? '#e7ae4a' : '#a8742a';
+    ctx.beginPath();
+    ctx.ellipse(0, y, 6.4 - i * 0.5, 2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  const hy = 10 - h - 6;
+  ctx.fillStyle = '#5fb7a8';
+  circle(ctx, 0, hy + 1, 7.4);
+  ctx.fillStyle = '#8fdccd';
+  circle(ctx, 0, hy, 7);
+  ctx.fillStyle = '#d6f6ee';
+  ellipse(ctx, -1.6, hy - 2.6, 3.6, 2.4);
+  // antenna with a bead
+  ctx.strokeStyle = '#a8742a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, hy - 6.6);
+  ctx.quadraticCurveTo(2 + sq, hy - 11, 3 + sq * 1.4, hy - 12);
+  ctx.stroke();
+  ctx.fillStyle = '#f5b942';
+  circle(ctx, 3 + sq * 1.4, hy - 12.6, 1.7);
+  eyes(ctx, 2.9, hy + 0.2, 1.5, blink);
+  cheeks(ctx, 5, hy + 2.6, 1.6);
+  smile(ctx, hy + 2.4, 1.5, o.happy);
+}
+
+// Hourmoth: an hourglass moth with sand-coloured wings.
+function hourmoth(ctx, t, blink, o) {
+  const flap = o.asleep ? 0.25 : Math.sin(t * 9) * 0.5 + 0.5;
+  const bob = Math.sin(t * 2.6) * 1.2;
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.translate(side * 3.4, -1 + bob);
+    ctx.scale(side * (0.5 + flap * 0.5), 1);
+    ctx.fillStyle = '#e6c39c';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(7, -15, 13, -7);
+    ctx.quadraticCurveTo(11, 1, 0, 2);
+    ctx.fill();
+    ctx.fillStyle = '#fbe9c6';
+    ctx.beginPath();
+    ctx.moveTo(0, 2);
+    ctx.quadraticCurveTo(11, 4, 9, 11);
+    ctx.quadraticCurveTo(3, 11, 0, 4);
+    ctx.fill();
+    ctx.fillStyle = '#f5b942';
+    circle(ctx, 8.4, -6.4, 1.8);
+    ctx.restore();
+  }
+  // hourglass body
+  ctx.fillStyle = '#b9a6e0';
+  ctx.beginPath();
+  ctx.moveTo(-4.2, -8 + bob);
+  ctx.lineTo(4.2, -8 + bob);
+  ctx.lineTo(1.2, 1 + bob);
+  ctx.lineTo(4.2, 10 + bob);
+  ctx.lineTo(-4.2, 10 + bob);
+  ctx.lineTo(-1.2, 1 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#f5b942';
+  ctx.beginPath();
+  ctx.moveTo(-3, 9 + bob);
+  ctx.lineTo(3, 9 + bob);
+  ctx.lineTo(0.6, 4.4 + bob);
+  ctx.lineTo(-0.6, 4.4 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#a8742a';
+  roundRect(ctx, -5, -9.4 + bob, 10, 2.2, 1);
+  ctx.fill();
+  roundRect(ctx, -5, 9.4 + bob, 10, 2.2, 1);
+  ctx.fill();
+  // face on the top bulb
+  ctx.fillStyle = '#d9cdf2';
+  circle(ctx, 0, -11.6 + bob, 4.6);
+  eyes(ctx, 1.9, -11.8 + bob, 1.2, blink);
+  cheeks(ctx, 3.3, -10.2 + bob, 1.2);
+}
+
 /** "Zzz" above a sleeping creature. */
 function drawZzz(ctx, x, y, t) {
   ctx.fillStyle = 'rgba(255,255,255,.85)';
@@ -2710,11 +3098,11 @@ function drawZzz(ctx, x, y, t) {
  * `silhouette` draws the undiscovered version.
  */
 function drawArtifact(ctx, id, x, y, s, silhouette = false) {
-  if (place(ctx, 'art_' + id, x, y, { scale: s, silhouette: silhouette ? '#16525e' : null })) return;
+  if (place(ctx, 'art_' + id, x, y, { scale: s, silhouette: silhouette ? '#0c3540' : null })) return;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
-  const c = (color) => (silhouette ? '#16525e' : color);
+  const c = (color) => (silhouette ? '#0c3540' : color);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   if (id === 'spoon') {
@@ -2805,6 +3193,104 @@ function drawArtifact(ctx, id, x, y, s, silhouette = false) {
     ctx.fillStyle = c('#ffffff');
     circle(ctx, -3, -8, 3);
     circle(ctx, 1.5, -11, 2.2);
+  } else if (id === 'windkey') {
+    ctx.rotate(0.5);
+    ctx.strokeStyle = c('#e7ae4a');
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, -3);
+    ctx.lineTo(0, 12);
+    ctx.moveTo(0, 8);
+    ctx.lineTo(4, 8);
+    ctx.moveTo(0, 12);
+    ctx.lineTo(5, 12);
+    ctx.stroke();
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.arc(-4.4, -8, 4, 0, Math.PI * 2);
+    ctx.arc(4.4, -8, 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = c('#fff3c4');
+    circle(ctx, 0, -3, 1.6);
+  } else if (id === 'escapement') {
+    ctx.fillStyle = c('#e7ae4a');
+    ctx.beginPath();
+    for (let i = 0; i < 20; i++) {
+      const rr = i % 2 ? 11 : 7.6;
+      const a = (i / 20) * Math.PI * 2;
+      ctx.lineTo(Math.cos(a) * rr, 2 + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = c('#a8742a');
+    circle(ctx, 0, 2, 3);
+    ctx.strokeStyle = c('#f08a8a');
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(-8, -9);
+    ctx.lineTo(0, -13);
+    ctx.lineTo(8, -9);
+    ctx.stroke();
+  } else if (id === 'hairspring') {
+    ctx.strokeStyle = c('#cfd8ea');
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    for (let i = 0; i <= 90; i++) {
+      const a = (i / 90) * Math.PI * 7;
+      const rr = 1.5 + (i / 90) * 11;
+      const px = Math.cos(a) * rr;
+      const py = Math.sin(a) * rr;
+      if (i) ctx.lineTo(px, py);
+      else ctx.moveTo(px, py);
+    }
+    ctx.stroke();
+    ctx.fillStyle = c('#f5b942');
+    circle(ctx, 0, 0, 2.2);
+  } else if (id === 'moondial') {
+    ctx.fillStyle = c('#a8742a');
+    circle(ctx, 0, 0, 12.5);
+    ctx.fillStyle = c('#2b3a78');
+    circle(ctx, 0, 0, 10.4);
+    ctx.fillStyle = c('#fff3c4');
+    circle(ctx, -1, 0, 6.4);
+    ctx.fillStyle = c('#2b3a78');
+    circle(ctx, 2.6, -1.4, 5.6);
+    ctx.fillStyle = c('#ffe08a');
+    circle(ctx, 6, 5.4, 1);
+    circle(ctx, -6.4, -6, 0.9);
+  } else if (id === 'chime') {
+    ctx.strokeStyle = c('#a8742a');
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-9, -11);
+    ctx.lineTo(9, -11);
+    ctx.stroke();
+    [[-6, 10], [0, 14], [6, 8]].forEach(([x, len], k) => {
+      ctx.fillStyle = c(['#f8d789', '#e7ae4a', '#f8d789'][k]);
+      roundRect(ctx, x - 2.2, -10, 4.4, len + 8, 2.2);
+      ctx.fill();
+    });
+    ctx.fillStyle = c('#f08a8a');
+    circle(ctx, 0, -12.6, 2);
+  } else if (id === 'lens') {
+    ctx.strokeStyle = c('#a8742a');
+    ctx.lineWidth = 3.4;
+    ctx.beginPath();
+    ctx.moveTo(5, 5);
+    ctx.lineTo(12, 12);
+    ctx.stroke();
+    ctx.fillStyle = c('#bfe9f2');
+    circle(ctx, -2, -2, 9);
+    ctx.strokeStyle = c('#e7ae4a');
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.arc(-2, -2, 9, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = c('#ffffff');
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(-2, -2, 5.6, 1.1 * Math.PI, 1.5 * Math.PI);
+    ctx.stroke();
   }
   ctx.restore();
 }
@@ -2836,6 +3322,649 @@ function artifactPortrait(id, size = 56, silhouette = false) {
 return { drawCreature, drawZzz, drawArtifact, creaturePortrait, artifactPortrait };
 })();
 
+// ---- src/render/tocktownScene.js ----
+__m['src/render/tocktownScene.js'] = (function () {
+// Tocktown's home scene: a clockwork town rising from a stopped pocket watch.
+// Everything here is drawn in code. worldView.js owns the sky, the table, the
+// creatures and the frame; this file only knows what Tocktown looks like at
+// each restoration level.
+//
+// Coordinates are the same 360 x 480 diorama box Mistlewick uses.
+
+const { glow, additive, ellipse, circle, roundRect, star4 } = __m['src/render/gfx.js'];
+const { upgradeLevel, restoration } = __m['src/progression/state.js'];
+const { mixHex } = __m['src/core/util.js'];
+
+/** Where each upgrade lives, for build celebrations. */
+const TOCK_ANCHOR = {
+  mainspring: [184, 398],
+  clocktower: [180, 90],
+  gearworks: [290, 198],
+  lamprow: [180, 222],
+  pendulum: [180, 262],
+  market: [76, 204]
+};
+
+const WATCH = { x: 184, y: 398, r: 62 };
+// brass cog platforms the town stands on: x, y of the top face, width
+const PLAT = {
+  clocktower: [180, 152, 92],
+  market: [76, 228, 118],
+  gearworks: [288, 224, 112],
+  pendulum: [180, 300, 122]
+};
+const GEARS = [
+  [308, 204, 14, 1],
+  [323, 184, 9, -1],
+  [268, 184, 8, -1]
+];
+const STRINGS = [
+  [[112, 176], [154, 138]],
+  [[206, 138], [262, 184]],
+  [[122, 216], [150, 232]],
+  [[210, 232], [246, 214]]
+];
+const LAMP_COLORS = ['#ffcf5c', '#ffe9a8', '#ffb86b'];
+const CRACKS = [
+  [[150, 372], [166, 384], [160, 398], [174, 410]],
+  [[214, 366], [204, 380], [216, 392]],
+  [[196, 424], [208, 436], [202, 448]]
+];
+
+const ASLEEP = { hi: '#b9b4d2', mid: '#8f8aae', dk: '#676287' };
+const BRASS = { hi: '#f8d789', mid: '#e7ae4a', dk: '#a8742a' };
+const tone = (on) => (on ? BRASS : ASLEEP);
+
+// Each building is authored small, then enlarged about the middle of its
+// platform so it reads at phone size: [x, y, scale].
+const GROW = {
+  clocktower: [180, 152, 1.16],
+  market: [76, 228, 1.42],
+  gearworks: [288, 224, 1.36],
+  pendulum: [180, 300, 1.12]
+};
+function within(g, id, fn) {
+  const [x, y, k] = GROW[id];
+  g.save();
+  g.translate(x, y);
+  g.scale(k, k);
+  g.translate(-x, -y);
+  fn();
+  g.restore();
+}
+const grown = (id, x, y) => [GROW[id][0] + (x - GROW[id][0]) * GROW[id][2], GROW[id][1] + (y - GROW[id][1]) * GROW[id][2]];
+
+/** A toothed wheel. `a` is its rotation. */
+function gear(g, x, y, r, a, fill, hub) {
+  const teeth = Math.max(6, Math.round(r * 0.8));
+  g.fillStyle = fill;
+  g.beginPath();
+  for (let i = 0; i < teeth * 2; i++) {
+    const rr = i % 2 ? r : r * 0.76;
+    const a0 = a + (i / (teeth * 2)) * Math.PI * 2;
+    const a1 = a + ((i + 0.72) / (teeth * 2)) * Math.PI * 2;
+    g.lineTo(x + Math.cos(a0) * rr, y + Math.sin(a0) * rr);
+    g.lineTo(x + Math.cos(a1) * rr, y + Math.sin(a1) * rr);
+  }
+  g.closePath();
+  g.fill();
+  g.fillStyle = hub;
+  circle(g, x, y, r * 0.34);
+}
+
+/** A cog seen from above and a little in front: the islands of Tocktown. */
+function platform(g, id, on) {
+  const [x, y, w] = PLAT[id];
+  const c = tone(on);
+  const rx = w / 2;
+  const ry = w * 0.16;
+  g.save();
+  if (!on) g.globalAlpha = 0.5;
+  g.fillStyle = c.dk;
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2;
+    circle(g, x + Math.cos(a) * rx, y + 6 + Math.sin(a) * ry, 4.6);
+  }
+  ellipse(g, x, y + 7, rx, ry);
+  g.fillStyle = c.mid;
+  ellipse(g, x, y, rx, ry);
+  g.fillStyle = c.hi;
+  ellipse(g, x - rx * 0.06, y - ry * 0.14, rx * 0.84, ry * 0.74);
+  g.restore();
+}
+
+function ghost(g, on, fn) {
+  g.save();
+  if (!on) g.globalAlpha = 0.24;
+  fn(!on);
+  g.restore();
+}
+
+// ------------------------------------------------------------ the watch
+
+/** The pocket watch itself (static parts). Level = Mainspring. */
+function drawWatch(g, st) {
+  const lv = upgradeLevel(st, 'mainspring');
+  const q = Math.min(1, (lv / 3) * 0.8 + restoration(st) * 0.2);
+  const { x, y, r } = WATCH;
+  const caseMid = mixHex('#8c88a8', '#e7ae4a', q);
+  const caseDk = mixHex('#5f5a7c', '#a8742a', q);
+  const caseHi = mixHex('#b9b4d2', '#f8d789', q);
+
+  // contact shadow on the table
+  g.save();
+  g.translate(x, y + r + 4);
+  g.scale(1, 0.13);
+  glow(g, 0, 0, 150, '#03171c', 0.9);
+  glow(g, 0, 0, 96, '#03171c', 0.8);
+  g.restore();
+
+  // bow and crown
+  g.strokeStyle = caseDk;
+  g.lineWidth = 5.5;
+  g.beginPath();
+  g.arc(x, y - r - 17, 9, 0, Math.PI * 2);
+  g.stroke();
+  g.strokeStyle = caseHi;
+  g.lineWidth = 2.2;
+  g.beginPath();
+  g.arc(x, y - r - 17, 9, 1.05 * Math.PI, 1.75 * Math.PI);
+  g.stroke();
+  g.fillStyle = caseDk;
+  roundRect(g, x - 8, y - r - 11, 16, 10, 3);
+  g.fill();
+  g.fillStyle = caseMid;
+  roundRect(g, x - 8, y - r - 11, 11, 10, 3);
+  g.fill();
+
+  // case
+  const body = g.createRadialGradient(x - r * 0.4, y - r * 0.5, 4, x, y, r + 9);
+  body.addColorStop(0, caseHi);
+  body.addColorStop(0.6, caseMid);
+  body.addColorStop(1, caseDk);
+  g.fillStyle = body;
+  circle(g, x, y, r + 8);
+  g.fillStyle = caseDk;
+  circle(g, x, y, r + 1.5);
+
+  // face
+  const face = g.createRadialGradient(x - 14, y - 18, 4, x, y, r);
+  face.addColorStop(0, mixHex('#cfcbe0', '#fffaf0', q));
+  face.addColorStop(1, mixHex('#a09bbd', '#f6e3b4', q));
+  g.fillStyle = face;
+  circle(g, x, y, r);
+
+  // the mainspring, coiled behind the dial
+  g.strokeStyle = mixHex('#8f8aae', '#f5b942', q);
+  g.globalAlpha = 0.3 + q * 0.3;
+  g.lineWidth = 1.6;
+  g.beginPath();
+  for (let i = 0; i <= 120; i++) {
+    const a = (i / 120) * Math.PI * 6;
+    const rr = 6 + (i / 120) * (r * 0.56);
+    const px = x + Math.cos(a) * rr;
+    const py = y + Math.sin(a) * rr;
+    if (i) g.lineTo(px, py);
+    else g.moveTo(px, py);
+  }
+  g.stroke();
+  g.globalAlpha = 1;
+
+  // hours
+  g.strokeStyle = mixHex('#5f5a7c', '#7a2f3f', q);
+  g.lineCap = 'round';
+  for (let h = 0; h < 12; h++) {
+    const a = (h / 12) * Math.PI * 2;
+    const big = h % 3 === 0;
+    g.lineWidth = big ? 2.6 : 1.4;
+    g.beginPath();
+    g.moveTo(x + Math.cos(a) * (r - (big ? 11 : 8)), y + Math.sin(a) * (r - (big ? 11 : 8)));
+    g.lineTo(x + Math.cos(a) * (r - 4), y + Math.sin(a) * (r - 4));
+    g.stroke();
+  }
+
+  // cracks in the glass: dark until mended, then gold
+  g.lineJoin = 'round';
+  CRACKS.forEach((pts, i) => {
+    const mended = lv > i;
+    g.strokeStyle = mended ? '#f5b942' : '#3a3458';
+    g.lineWidth = mended ? 2.6 : 1.8;
+    g.beginPath();
+    pts.forEach(([px, py], k) => (k ? g.lineTo(px, py) : g.moveTo(px, py)));
+    g.stroke();
+    if (mended) {
+      g.strokeStyle = 'rgba(255,255,255,.7)';
+      g.lineWidth = 0.8;
+      g.stroke();
+    }
+  });
+
+  // stopped at one minute to midnight until the spring is wound
+  if (lv === 0) hands(g, x, y, r, 11, 59, null, '#4a4468');
+
+  // glass highlight
+  g.strokeStyle = 'rgba(255,255,255,.5)';
+  g.lineWidth = 2.4;
+  g.beginPath();
+  g.arc(x, y, r - 6, 1.1 * Math.PI, 1.42 * Math.PI);
+  g.stroke();
+  g.strokeStyle = caseHi;
+  g.lineWidth = 1.6;
+  g.beginPath();
+  g.arc(x, y, r + 6.5, 1.05 * Math.PI, 1.6 * Math.PI);
+  g.stroke();
+}
+
+function hands(g, x, y, r, hour, minute, second, color) {
+  const ma = (minute / 60) * Math.PI * 2 - Math.PI / 2;
+  const ha = (((hour % 12) + minute / 60) / 12) * Math.PI * 2 - Math.PI / 2;
+  g.lineCap = 'round';
+  g.strokeStyle = color;
+  g.lineWidth = Math.max(1.2, r * 0.06);
+  g.beginPath();
+  g.moveTo(x, y);
+  g.lineTo(x + Math.cos(ha) * r * 0.46, y + Math.sin(ha) * r * 0.46);
+  g.stroke();
+  g.lineWidth = Math.max(1, r * 0.042);
+  g.beginPath();
+  g.moveTo(x, y);
+  g.lineTo(x + Math.cos(ma) * r * 0.72, y + Math.sin(ma) * r * 0.72);
+  g.stroke();
+  if (second !== null) {
+    const sa = (second / 60) * Math.PI * 2 - Math.PI / 2;
+    g.strokeStyle = '#f08a8a';
+    g.lineWidth = Math.max(0.7, r * 0.02);
+    g.beginPath();
+    g.moveTo(x - Math.cos(sa) * r * 0.12, y - Math.sin(sa) * r * 0.12);
+    g.lineTo(x + Math.cos(sa) * r * 0.78, y + Math.sin(sa) * r * 0.78);
+    g.stroke();
+  }
+  g.fillStyle = color;
+  circle(g, x, y, Math.max(1.4, r * 0.06));
+}
+
+/** Per-frame parts of the watch: light, and hands that move once it is wound. */
+function drawWatchLive(ctx, st, t, p) {
+  const lv = upgradeLevel(st, 'mainspring');
+  const { x, y, r } = WATCH;
+  additive(ctx, () => {
+    // warm light rising from the watch to the town it holds up
+    const lift = 0.08 + p * 0.15 + Math.sin(t * 1.3) * 0.02;
+    for (let i = 0; i < 6; i++) glow(ctx, x, y - r - i * 22, 44 + i * 9, '#ffd68c', lift * (1 - i / 6.5));
+    glow(ctx, x, y, r * (0.9 + Math.sin(t * 2) * 0.04), '#ffcf5c', 0.1 + lv * 0.07 + p * 0.1);
+    // gold seams shimmer
+    for (let i = 0; i < lv; i++) {
+      const pts = CRACKS[i];
+      const u = (((t * 0.35 + i * 0.3) % 1) + 1) % 1;
+      const seg = Math.max(0, Math.min(pts.length - 2, Math.floor(u * (pts.length - 1))));
+      const f = u * (pts.length - 1) - seg;
+      glow(ctx, pts[seg][0] + (pts[seg + 1][0] - pts[seg][0]) * f, pts[seg][1] + (pts[seg + 1][1] - pts[seg][1]) * f, 10, '#ffe08a', 0.7);
+    }
+  });
+  if (lv >= 1) {
+    // wound: it tells the real time, and from the last level the second hand ticks
+    const now = new Date();
+    hands(ctx, x, y, r, now.getHours(), now.getMinutes() + now.getSeconds() / 60, lv >= 3 ? now.getSeconds() : null, '#5a2a3a');
+  }
+}
+
+// ------------------------------------------------------------ the town
+
+/** Static parts of the town. Returns the lamp positions that glow each frame. */
+function drawTown(g, st) {
+  const L = (id) => upgradeLevel(st, id);
+  const lamps = [];
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+
+  platform(g, 'clocktower', L('clocktower') > 0);
+  platform(g, 'market', L('market') > 0);
+  platform(g, 'gearworks', L('gearworks') > 0);
+  platform(g, 'pendulum', true);
+
+  // --- Lamplighter's Row: strings of lamps from platform to platform ---
+  const nStrings = [0, 1, 2, 4][L('lamprow')];
+  STRINGS.forEach(([a, b], si) => {
+    const on = si < nStrings;
+    if (!on && si > 1) return;
+    g.save();
+    if (!on) g.globalAlpha = 0.18;
+    const mx = (a[0] + b[0]) / 2;
+    const my = (a[1] + b[1]) / 2 + 15;
+    g.strokeStyle = on ? '#c9a05a' : '#9d98d6';
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.moveTo(a[0], a[1]);
+    g.quadraticCurveTo(mx, my, b[0], b[1]);
+    g.stroke();
+    for (let k = 1; k <= 4; k++) {
+      const u = k / 5;
+      const x = (1 - u) * (1 - u) * a[0] + 2 * (1 - u) * u * mx + u * u * b[0];
+      const y = (1 - u) * (1 - u) * a[1] + 2 * (1 - u) * u * my + u * u * b[1];
+      const col = LAMP_COLORS[(k + si) % 3];
+      g.fillStyle = on ? '#a8742a' : '#9d98d6';
+      roundRect(g, x - 2.4, y, 4.8, 3, 1);
+      g.fill();
+      g.fillStyle = on ? col : '#9d98d6';
+      circle(g, x, y + 6.4, 4);
+      if (on) lamps.push([x, y + 6.4, col]);
+    }
+    g.restore();
+  });
+
+  // --- Midnight Tower ---
+  const tw = L('clocktower');
+  within(g, 'clocktower', () => ghost(g, tw > 0, (gh) => {
+    const wall = gh ? '#9d98d6' : '#fbe9c6';
+    const side = gh ? '#8d88c6' : '#e6c39c';
+    g.fillStyle = side;
+    g.beginPath();
+    g.moveTo(162, 153);
+    g.lineTo(169, 86);
+    g.lineTo(191, 86);
+    g.lineTo(198, 153);
+    g.closePath();
+    g.fill();
+    g.fillStyle = wall;
+    g.beginPath();
+    g.moveTo(162, 153);
+    g.lineTo(169, 86);
+    g.lineTo(184, 86);
+    g.lineTo(186, 153);
+    g.closePath();
+    g.fill();
+    // clock housing
+    g.fillStyle = gh ? '#9d98d6' : '#a8742a';
+    circle(g, 180, 76, 17);
+    g.fillStyle = gh ? '#aaa6dc' : '#e7ae4a';
+    circle(g, 180, 75, 15.5);
+    g.fillStyle = gh ? '#b6b2e2' : '#fff6e2';
+    circle(g, 180, 75, 11.5);
+    if (gh) return;
+    g.fillStyle = '#7a2f3f';
+    for (let h = 0; h < 12; h += 3) {
+      const a = (h / 12) * Math.PI * 2;
+      circle(g, 180 + Math.cos(a) * 9, 75 + Math.sin(a) * 9, 1);
+    }
+    // door
+    g.fillStyle = '#7a2f3f';
+    g.beginPath();
+    g.moveTo(174, 153);
+    g.lineTo(174, 140);
+    g.arc(180, 140, 6, Math.PI, 0);
+    g.lineTo(186, 153);
+    g.fill();
+    if (tw >= 2) {
+      // pointed roof and lit windows
+      g.fillStyle = '#c9647a';
+      g.beginPath();
+      g.moveTo(160, 62);
+      g.quadraticCurveTo(178, 56, 180, 30);
+      g.quadraticCurveTo(182, 56, 200, 62);
+      g.closePath();
+      g.fill();
+      g.fillStyle = '#f4a6b4';
+      g.beginPath();
+      g.moveTo(160, 62);
+      g.quadraticCurveTo(176, 56, 180, 30);
+      g.lineTo(180, 62);
+      g.closePath();
+      g.fill();
+      g.fillStyle = '#ffe08a';
+      roundRect(g, 175, 104, 5, 8, 2);
+      g.fill();
+      roundRect(g, 181, 120, 5, 8, 2);
+      g.fill();
+    } else {
+      g.fillStyle = '#c9647a';
+      roundRect(g, 164, 56, 32, 6, 3);
+      g.fill();
+    }
+    if (tw >= 3) {
+      g.fillStyle = '#ffcf5c';
+      star4(g, 180, 24, 6, 0);
+      g.fillStyle = '#a8742a';
+      roundRect(g, 158, 126, 4, 6, 1.5);
+      g.fill();
+      roundRect(g, 198, 126, 4, 6, 1.5);
+      g.fill();
+    }
+  }));
+
+  // --- Gearworks (the wheels themselves turn, so they are drawn each frame) ---
+  const gw = L('gearworks');
+  within(g, 'gearworks', () => ghost(g, gw > 0, (gh) => {
+    g.fillStyle = gh ? '#8d88c6' : '#e6c39c';
+    roundRect(g, 262, 196, 38, 30, 5);
+    g.fill();
+    g.fillStyle = gh ? '#9d98d6' : '#fbe9c6';
+    roundRect(g, 262, 196, 27, 30, 5);
+    g.fill();
+    g.fillStyle = gh ? '#9d98d6' : '#a8742a';
+    g.beginPath();
+    g.moveTo(256, 199);
+    g.lineTo(272, 180);
+    g.lineTo(306, 199);
+    g.closePath();
+    g.fill();
+    if (gh) {
+      gear(g, GEARS[0][0], GEARS[0][1], GEARS[0][2], 0.3, '#9d98d6', '#8d88c6');
+      return;
+    }
+    g.fillStyle = '#e7ae4a';
+    g.beginPath();
+    g.moveTo(256, 199);
+    g.lineTo(272, 180);
+    g.lineTo(284, 199);
+    g.closePath();
+    g.fill();
+    g.fillStyle = '#7a2f3f';
+    roundRect(g, 270, 208, 10, 18, 4);
+    g.fill();
+    if (gw >= 2) {
+      g.fillStyle = '#ffe08a';
+      circle(g, 290, 208, 3.4);
+    }
+    if (gw >= 3) {
+      g.fillStyle = '#a8742a';
+      roundRect(g, 292, 174, 7, 18, 2);
+      g.fill();
+      g.fillStyle = '#e7ae4a';
+      roundRect(g, 290, 172, 11, 4, 2);
+      g.fill();
+    }
+  }));
+
+  // --- Tick-Tock Market: one more stall per level ---
+  const mk = L('market');
+  const stalls = [[50, 228], [78, 226], [104, 229]];
+  stalls.forEach(([sx, sy], i) => {
+    const on = i < mk;
+    if (!on && i > 0) return;
+    within(g, 'market', () => ghost(g, on, (gh) => {
+      g.strokeStyle = gh ? '#9d98d6' : '#a8742a';
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(sx - 9, sy);
+      g.lineTo(sx - 9, sy - 20);
+      g.moveTo(sx + 9, sy);
+      g.lineTo(sx + 9, sy - 20);
+      g.stroke();
+      g.fillStyle = gh ? '#9d98d6' : '#fbe9c6';
+      roundRect(g, sx - 11, sy - 9, 22, 9, 2.5);
+      g.fill();
+      // striped awning
+      const cols = gh ? ['#9d98d6', '#aaa6dc'] : [['#f08a8a', '#fff4dc'], ['#7fd0c4', '#fff4dc'], ['#f5b942', '#fff4dc']][i];
+      for (let k = 0; k < 4; k++) {
+        g.fillStyle = cols[k % 2];
+        g.beginPath();
+        g.moveTo(sx - 13 + k * 6.5, sy - 18);
+        g.lineTo(sx - 13 + (k + 1) * 6.5, sy - 18);
+        g.lineTo(sx - 11 + (k + 1) * 5.5, sy - 26);
+        g.lineTo(sx - 11 + k * 5.5, sy - 26);
+        g.closePath();
+        g.fill();
+        circle(g, sx - 13 + k * 6.5 + 3.25, sy - 18, 3.25);
+      }
+      if (gh) return;
+      // wares: tiny clocks sold by the second
+      g.fillStyle = '#e7ae4a';
+      circle(g, sx - 5, sy - 11, 2.4);
+      g.fillStyle = '#f08a8a';
+      circle(g, sx + 1, sy - 11.5, 2.1);
+      g.fillStyle = '#7fd0c4';
+      circle(g, sx + 6, sy - 11, 2.2);
+    }));
+  });
+  if (mk >= 3) within(g, 'market', () => {
+    g.strokeStyle = '#c9a05a';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(38, 196);
+    g.quadraticCurveTo(78, 208, 116, 197);
+    g.stroke();
+    for (let k = 0; k < 6; k++) {
+      const u = (k + 0.5) / 6;
+      const x = (1 - u) * (1 - u) * 38 + 2 * (1 - u) * u * 78 + u * u * 116;
+      const y = (1 - u) * (1 - u) * 196 + 2 * (1 - u) * u * 208 + u * u * 197;
+      g.fillStyle = ['#f08a8a', '#ffcf5c', '#7fd0c4'][k % 3];
+      g.beginPath();
+      g.moveTo(x - 3, y);
+      g.lineTo(x + 3, y);
+      g.lineTo(x, y + 5.5);
+      g.closePath();
+      g.fill();
+    }
+  });
+
+  // --- Pendulum Hall (the pendulum itself swings, so it is drawn each frame) ---
+  const ph = L('pendulum');
+  const on = ph > 0;
+  within(g, 'pendulum', () => {
+  g.fillStyle = on ? '#e6c39c' : '#7a74a6';
+  roundRect(g, 152, 250, 9, 52, 3);
+  g.fill();
+  roundRect(g, 199, 250, 9, 52, 3);
+  g.fill();
+  g.fillStyle = on ? '#fbe9c6' : '#8c86b6';
+  roundRect(g, 152, 250, 6, 52, 3);
+  g.fill();
+  roundRect(g, 199, 250, 6, 52, 3);
+  g.fill();
+  g.fillStyle = on ? '#c9647a' : '#6b6596';
+  g.beginPath();
+  g.moveTo(142, 254);
+  g.quadraticCurveTo(180, 208, 218, 254);
+  g.closePath();
+  g.fill();
+  g.fillStyle = on ? '#f4a6b4' : '#7a74a6';
+  g.beginPath();
+  g.moveTo(142, 254);
+  g.quadraticCurveTo(170, 216, 180, 231);
+  g.lineTo(180, 254);
+  g.closePath();
+  g.fill();
+  g.fillStyle = on ? '#a8742a' : '#57527f';
+  roundRect(g, 146, 296, 68, 6, 3);
+  g.fill();
+  if (ph >= 2) {
+    g.fillStyle = '#a8742a';
+    roundRect(g, 144, 262, 5, 3, 1);
+    g.fill();
+    roundRect(g, 211, 262, 5, 3, 1);
+    g.fill();
+    g.fillStyle = '#ffe08a';
+    circle(g, 146.5, 268, 3.4);
+    circle(g, 213.5, 268, 3.4);
+    lamps.push([...grown('pendulum', 146.5, 268), '#ffe08a'], [...grown('pendulum', 213.5, 268), '#ffe08a']);
+  }
+  if (ph >= 3) {
+    g.strokeStyle = '#f5b942';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(144, 254);
+    g.quadraticCurveTo(180, 211, 216, 254);
+    g.stroke();
+    g.fillStyle = '#ffcf5c';
+    star4(g, 180, 222, 6, 0);
+  }
+  if (!on) {
+    // hanging dead still
+    g.strokeStyle = '#57527f';
+    g.lineWidth = 1.6;
+    g.beginPath();
+    g.moveTo(180, 250);
+    g.lineTo(180, 284);
+    g.stroke();
+    g.fillStyle = '#6b6596';
+    circle(g, 180, 287, 5.5);
+  }
+  });
+  return lamps;
+}
+
+/** Per-frame parts of the town: turning wheels, swinging pendulum, moving hands, light. */
+function drawTownLive(ctx, st, t, lamps) {
+  const L = (id) => upgradeLevel(st, id);
+
+  // gears turn, faster the more the works are oiled
+  const gw = L('gearworks');
+  within(ctx, 'gearworks', () => {
+    for (let i = 0; i < gw; i++) {
+      const [x, y, r, dir] = GEARS[i];
+      gear(ctx, x, y, r, t * (0.5 + gw * 0.22) * dir * (14 / r), i === 0 ? '#e7ae4a' : '#f8d789', '#a8742a');
+    }
+  });
+
+  // the tower clock keeps the real time once it is running
+  const tw = L('clocktower');
+  within(ctx, 'clocktower', () => {
+    if (tw >= 1) {
+      const now = new Date();
+      hands(ctx, 180, 75, 11.5, now.getHours(), now.getMinutes(), null, '#5a2a3a');
+    } else {
+      ctx.globalAlpha = 0.24;
+      hands(ctx, 180, 75, 11.5, 11, 59, null, '#4a4468');
+    }
+  });
+
+  // the pendulum swings wider as the hall is restored
+  const ph = L('pendulum');
+  if (ph >= 1) within(ctx, 'pendulum', () => {
+    const a = Math.sin(t * 2.3) * (0.22 + ph * 0.1);
+    const bx = 180 + Math.sin(a) * 36;
+    const by = 250 + Math.cos(a) * 36;
+    ctx.strokeStyle = '#a8742a';
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(180, 250);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+    ctx.fillStyle = '#f5b942';
+    circle(ctx, bx, by, 6);
+    ctx.fillStyle = '#fff3c4';
+    circle(ctx, bx - 1.6, by - 1.8, 2);
+  });
+
+  additive(ctx, () => {
+    for (let i = 0; i < lamps.length; i++) {
+      const [x, y, col] = lamps[i];
+      glow(ctx, x, y, 11 + Math.sin(t * 3 + i * 1.7) * 1.6, col, 0.8);
+    }
+    const at = (id, x, y, r, col, a) => glow(ctx, ...grown(id, x, y), r * GROW[id][2], col, a);
+    if (tw >= 2) at('clocktower', 180, 75, 20 + Math.sin(t * 2.2) * 2, '#ffe08a', 0.4);
+    if (tw >= 3) at('clocktower', 180, 24, 13, '#ffcf5c', 0.7);
+    if (ph >= 1) at('pendulum', 180, 286, 16 + ph * 5 + Math.sin(t * 4.6) * 2, '#ffb347', 0.5);
+    if (gw >= 2) at('gearworks', 290, 208, 9, '#ffe08a', 0.7);
+    const mk = L('market');
+    for (let i = 0; i < mk; i++) at('market', [50, 78, 104][i], 216, 12, '#ffd98a', 0.35);
+  });
+}
+
+return { TOCK_ANCHOR, drawWatch, drawWatchLive, drawTown, drawTownLive, gear };
+})();
+
 // ---- src/render/worldView.js ----
 __m['src/render/worldView.js'] = (function () {
 // The home diorama: Mistlewick, a cloud village rising out of a cracked teapot
@@ -2849,7 +3978,9 @@ const { mulberry32 } = __m['src/core/rng.js'];
 const { glow, additive, ellipse, circle, roundRect, cloud, star4, Particles } = __m['src/render/gfx.js'];
 const { drawCreature } = __m['src/render/creatures.js'];
 const { has, place, slot, cover, band, assetVersion } = __m['src/render/assets.js'];
-const { upgradeLevel, restoration } = __m['src/progression/state.js'];
+const { upgradeLevel, restoration, worldOf, isUnlocked, setDone } = __m['src/progression/state.js'];
+const { WORLDS, WORLD_ORDER } = __m['src/config/worlds.js'];
+const { TOCK_ANCHOR, drawWatch, drawWatchLive, drawTown, drawTownLive } = __m['src/render/tocktownScene.js'];
 
 const BOX = { w: 360, h: 480 }; // the diorama is authored in this box, then fitted to the screen
 
@@ -2900,11 +4031,18 @@ const CUP_SPOTS = [[62, 189, '#ffd3dd', '#ff8fa3'], [92, 184, '#d6efff', '#6fa8f
 const BUSH_SPOTS = [[256, 181], [300, 181], [276, 177], [314, 186]];
 const FOLK_SPOTS = [[50, 191], [76, 194], [104, 192], [124, 196], [66, 199], [110, 200]];
 const LAMP_COLORS = ['#ffcf5c', '#ff8fa3', '#7fe3d8'];
-// Cases still waiting on the Bureau desk, behind the teapot (box coords).
-const TEASERS = [
-  { x: 24, y: 456, r: 21, kind: 'watch' },
-  { x: 342, y: 456, r: 22, kind: 'globe' }
-];
+// Other cases on the Bureau desk, beside the one that is open (box coords).
+// `world` is a case you can travel to; `soon` indexes COMING_SOON.
+const TEASERS = {
+  mistlewick: [
+    { x: 24, y: 456, r: 21, kind: 'watch', world: 'tocktown' },
+    { x: 342, y: 456, r: 22, kind: 'globe', soon: 0 }
+  ],
+  tocktown: [
+    { x: 30, y: 458, r: 22, kind: 'teapot', world: 'mistlewick' },
+    { x: 342, y: 456, r: 22, kind: 'globe', soon: 0 }
+  ]
+};
 // Where the spout opens on the painted teapots: stages 0-2, then stage 3 (box coords).
 const SPOUT_ART = [[292, 339], [281, 351]];
 const CREATURE_SCALE = 1.45; // creatures in the village, relative to their ~28-unit base size
@@ -2932,8 +4070,15 @@ function createWorldView(getState) {
   const critters = {
     nimbit: { x: 126, min: 104, max: 256, y: 292, dir: 1, pause: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
     sprigget: { x: 270, min: 236, max: 334, y: 214, dir: -1, pause: 2, hop: 0, happy: 0, sx: 0, sy: 0 },
-    whistlewing: { x: 180, y: 60, phase: 0, hop: 0, happy: 0, sx: 0, sy: 0 }
+    whistlewing: { x: 180, y: 60, fly: [180, 84, 78, 14], phase: 0, dir: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
+    // Tocktown
+    tocklet: { x: 150, min: 128, max: 232, y: 286, dir: 1, pause: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
+    springle: { x: 300, min: 250, max: 336, y: 210, dir: -1, pause: 2, hop: 0, happy: 0, sx: 0, sy: 0, bouncy: true },
+    hourmoth: { x: 180, y: 60, fly: [180, 92, 84, 18], phase: 1.4, dir: 1, hop: 0, happy: 0, sx: 0, sy: 0 }
   };
+  const isTock = () => getState().worldId === 'tocktown';
+  const residents = (st) => worldOf(st).creatures.map((c) => c.id);
+  const teasers = (st) => TEASERS[st.worldId] || [];
 
   const toScreen = (bx, by, bob = 0) => [geom.ox + bx * geom.s, geom.oy + (by + bob) * geom.s];
   const bobNow = () => Math.sin(t * 0.8) * 2.2;
@@ -2959,7 +4104,24 @@ function createWorldView(getState) {
     sky.addColorStop(0, mixHex('#0a081f', '#17235f', p));
     sky.addColorStop(0.5, mixHex('#191343', '#4d3f99', p));
     sky.addColorStop(1, mixHex('#30205a', '#f09aa8', p));
-    if (!cover(g, 'mw_backdrop', W, H)) {
+    const tock = st.worldId === 'tocktown';
+    if (tock) {
+      // Tocktown: the deep blue of one minute to midnight, warming as the town wakes
+      const night = g.createLinearGradient(0, 0, 0, deskY);
+      night.addColorStop(0, mixHex('#0b1230', '#16224f', p));
+      night.addColorStop(0.55, mixHex('#1d2a5c', '#3d4a8c', p));
+      night.addColorStop(1, mixHex('#4a3f7c', '#c98aa0', p));
+      g.fillStyle = night;
+      g.fillRect(0, 0, W, H);
+      const rng = mulberry32(23);
+      for (let i = 0; i < 90; i++) {
+        const x = rng() * W;
+        const y = rng() * deskY * 0.9;
+        const r = 0.4 + rng() * 1.2;
+        g.fillStyle = `rgba(255,244,214,${(0.3 + rng() * 0.6) * (1 - p * 0.35)})`;
+        circle(g, x, y, r);
+      }
+    } else if (!cover(g, 'mw_backdrop', W, H)) {
       g.fillStyle = sky;
       g.fillRect(0, 0, W, H);
 
@@ -2975,7 +4137,18 @@ function createWorldView(getState) {
     }
     // porcelain moon: reward for completing the artifact set
     const my = geom.oy + 70 * geom.s;
-    if (st.setRewarded && !place(g, 'mw_moon', 56, my)) {
+    if (tock) {
+      if (setDone(st)) {
+        // a full moon over Tocktown: the reward for the Regalia
+        additive(g, () => glow(g, 62, my, 74, '#fff0c8', 0.5));
+        g.fillStyle = '#fff6dc';
+        circle(g, 62, my, 23);
+        g.fillStyle = 'rgba(201,160,90,.3)';
+        circle(g, 55, my - 6, 5);
+        circle(g, 69, my + 5, 6.5);
+        circle(g, 66, my - 10, 3);
+      }
+    } else if (setDone(st) && !place(g, 'mw_moon', 56, my)) {
       additive(g, () => glow(g, 56, my, 60, '#bcd0ff', 0.5));
       g.fillStyle = '#f4f7ff';
       circle(g, 56, my, 19);
@@ -2983,7 +4156,7 @@ function createWorldView(getState) {
       circle(g, 64, my - 6, 16);
     }
     // warm horizon behind the teapot
-    const painted = has('mw_backdrop'); // painted skies carry their own light
+    const painted = !tock && has('mw_backdrop'); // painted skies carry their own light
     additive(g, () => {
       glow(g, W / 2, deskY, 250 * geom.s, '#ff9d6b', painted ? 0.06 + p * 0.12 : 0.12 + p * 0.3);
       if (p >= 1) glow(g, W / 2, geom.oy + 60 * geom.s, 190 * geom.s, '#ffe9a8', painted ? 0.1 : 0.22);
@@ -3286,6 +4459,7 @@ function createWorldView(getState) {
         g.restore();
       }
     });
+    if (st.worldId !== 'mistlewick') return; // the far cloud islands belong to Mistlewick's sky
     for (const f of farIsles) {
       if (!place(g, 'mw_island', f.x, f.y, { w: 160 * f.k, alpha: 0.55, quiet: true })) {
         cloud(g, f.x, f.y, 150 * f.k, 34 * f.k, 'rgba(255,255,255,.2)', 'rgba(170,200,230,.14)');
@@ -3304,18 +4478,38 @@ function createWorldView(getState) {
   }
 
   // The next cases, waiting their turn: dark shapes on the desk behind the pot.
-  function drawTeasers(g) {
-    const body = '#0f3d48';
-    const face = '#1a5662';
-    const dark = '#0a2c35';
-    const rim = 'rgba(196,238,230,.5)';
+  function drawTeasers(g, st) {
     g.lineCap = 'round';
-    for (const tz of TEASERS) {
+    for (const tz of teasers(st)) {
+      // a case you can open is shown in its own colours; one still waiting is a dark shape
+      const open = tz.world && isUnlocked(st, tz.world);
+      const body = open ? '#a8742a' : '#0f3d48';
+      const face = open ? '#fff0c8' : '#1a5662';
+      const dark = open ? '#5a2a3a' : '#0a2c35';
+      const rim = open ? 'rgba(255,246,214,.8)' : 'rgba(196,238,230,.5)';
       g.save();
       g.translate(tz.x, tz.y);
       g.fillStyle = 'rgba(3,23,28,.55)';
       ellipse(g, 2, 1, tz.r * 1.05, 3.4);
-      if (tz.kind === 'watch') {
+      if (tz.kind === 'teapot') {
+        // Mistlewick's teapot, as you left it
+        const lv = upgradeLevel(st, 'teapot');
+        if (!place(g, 'mw_teapot_' + lv, 0, 2, { w: 58, anchor: 'ground', quiet: true })) {
+          g.fillStyle = '#f4a6b4';
+          ellipse(g, 0, -13, 20, 14);
+          g.strokeStyle = '#f4a6b4';
+          g.lineWidth = 4;
+          g.beginPath();
+          g.arc(-20, -14, 8, 0.5 * Math.PI, 1.5 * Math.PI);
+          g.stroke();
+          g.beginPath();
+          g.moveTo(17, -14);
+          g.lineTo(28, -24);
+          g.stroke();
+          g.fillStyle = '#7a2f3f';
+          ellipse(g, 0, -25, 11, 3);
+        }
+      } else if (tz.kind === 'watch') {
         // a stopped pocket watch, propped up, one minute to midnight
         g.rotate(-0.16);
         g.strokeStyle = body;
@@ -3647,12 +4841,15 @@ function createWorldView(getState) {
     g.translate(geom.ox, geom.oy);
     g.scale(geom.s, geom.s);
     drawFarSky(g, st);
-    drawTeasers(g);
-    drawTeapot(g, st);
+    drawTeasers(g, st);
+    const tock = st.worldId === 'tocktown';
+    if (tock) drawWatch(g, st);
+    else drawTeapot(g, st);
     [village, g] = mk();
     g.translate(geom.ox, geom.oy);
     g.scale(geom.s, geom.s);
-    drawVillage(g, st);
+    if (tock) lamps = drawTown(g, st);
+    else drawVillage(g, st);
   }
 
   // ------------------------------------------------------------ per frame
@@ -3663,8 +4860,9 @@ function createWorldView(getState) {
     const p = restoration(st);
     fx.update(dt);
 
+    const tock = st.worldId === 'tocktown';
     // steam rising from the teapot's opening and spout
-    if (Math.random() < dt * (3 + p * 6)) {
+    if (!tock && Math.random() < dt * (3 + p * 6)) {
       const art = has('mw_teapot_' + upgradeLevel(st, 'teapot'));
       steam.push({
         x: (art ? 184 : 180) + (Math.random() - 0.5) * (art ? 44 : 60),
@@ -3677,7 +4875,7 @@ function createWorldView(getState) {
       });
     }
     // steam curling from the spout, wherever this pot's spout is
-    if (Math.random() < dt * (2.2 + p * 3.2)) {
+    if (!tock && Math.random() < dt * (2.2 + p * 3.2)) {
       const lv = upgradeLevel(st, 'teapot');
       const [sx, sy] = !has('mw_teapot_' + lv) ? [328, 342] : lv >= 3 ? SPOUT_ART[1] : SPOUT_ART[0];
       steam.push({
@@ -3691,7 +4889,7 @@ function createWorldView(getState) {
         spout: true
       });
     }
-    if (upgradeLevel(st, 'garden') > 0 && Math.random() < dt * 3) {
+    if (!tock && upgradeLevel(st, 'garden') > 0 && Math.random() < dt * 3) {
       const [gx, gy] = moved('garden', 288, 178);
       steam.push({ x: gx, y: gy, vx: (Math.random() - 0.5) * 5, vy: -16, r: 3, life: 1, village: true });
     }
@@ -3722,10 +4920,18 @@ function createWorldView(getState) {
     }
 
     // creatures potter about
-    for (const id of ['nimbit', 'sprigget']) {
+    for (const id of residents(st)) {
       const c = critters[id];
       c.hop = Math.max(0, c.hop - dt * 2.4);
       c.happy = Math.max(0, c.happy - dt);
+      if (c.fly) {
+        // flyers loop round their tower
+        c.phase += dt * 0.9;
+        c.x = c.fly[0] + Math.cos(c.phase) * c.fly[2];
+        c.y = c.fly[1] + Math.sin(c.phase * 2) * c.fly[3];
+        c.dir = Math.sin(c.phase) > 0 ? -1 : 1;
+        continue;
+      }
       if (c.pause > 0) {
         c.pause -= dt;
         continue;
@@ -3738,17 +4944,16 @@ function createWorldView(getState) {
         if (Math.random() < 0.4) c.dir *= -1;
       }
     }
-    const w = critters.whistlewing;
-    w.phase += dt * 0.9;
-    w.hop = Math.max(0, w.hop - dt * 2.4);
-    w.happy = Math.max(0, w.happy - dt);
-    w.x = 180 + Math.cos(w.phase) * 78;
-    w.y = 84 + Math.sin(w.phase * 2) * 14;
   }
 
   function draw(ctx, W, H, px) {
     const st = getState();
-    const k = [W, H, px, assetVersion(), st.setRewarded, ...Object.keys(ANCHOR).map((id) => upgradeLevel(st, id))].join(',');
+    const tock = st.worldId === 'tocktown';
+    const k = [
+      W, H, px, assetVersion(), st.worldId, setDone(st),
+      ...WORLD_ORDER.map((w) => isUnlocked(st, w)),
+      ...WORLD_ORDER.flatMap((w) => WORLDS[w].upgrades.map((u) => upgradeLevel(st, u.id)))
+    ].join(',');
     if (k !== key) {
       fit(W, H);
       rebuild(st, px);
@@ -3771,14 +4976,16 @@ function createWorldView(getState) {
       ctx.drawImage(puff(), c.x - c.w / 2, c.y - c.w * 0.2, c.w, c.w * 0.4);
     }
     ctx.globalAlpha = 1;
-    if (p > 0.15) {
+    if (!tock && p > 0.15) {
       additive(ctx, () => {
         for (const f of farIsles) glow(ctx, f.x, f.y - 13 * f.k, 10 * f.k + 3, '#ffd98a', 0.35 + p * 0.35 + Math.sin(t * 1.4 + f.ph) * 0.12);
       });
     }
 
+    if (tock) drawWatchLive(ctx, st, t, p);
     // light inside the teapot
     const potArt = has('mw_teapot_' + L('teapot'));
+    if (!tock) {
     additive(ctx, () => {
       // a column of warm light rising from the pot to the village it holds up
       const lift = 0.1 + p * 0.16 + Math.sin(t * 1.3) * 0.02;
@@ -3803,6 +5010,7 @@ function createWorldView(getState) {
       ctx.fillStyle = `rgba(255,255,255,${(s.spout ? 0.26 : 0.1) * s.life + 0.08 * s.life * p})`;
       circle(ctx, s.x, s.y, s.r);
     }
+    } // (Mistlewick only)
     ctx.restore();
 
     ctx.drawImage(village, 0, bob * geom.s, W, H);
@@ -3811,9 +5019,11 @@ function createWorldView(getState) {
     ctx.translate(geom.ox, geom.oy + bob * geom.s);
     ctx.scale(geom.s, geom.s);
 
+    if (tock) drawTownLive(ctx, st, t, lamps);
     // Where finished art fills a slot, its own glow layer replaces the
     // hand-placed lights (which sit on the code-drawn windows and lamps).
     const art = (id) => has(`mw_${id}_${L(id)}`);
+    if (!tock) {
     // kept gentle: at full strength the halos bleach the buildings to flat yellow
     const halo = (id, i) => slot(ctx, `mw_${id}_${L(id)}`, { glow: true, alpha: 0.34 + Math.sin(t * 2.6 + i * 1.7) * 0.08 });
     additive(ctx, () => {
@@ -3861,18 +5071,22 @@ function createWorldView(getState) {
       circle(ctx, x - 1.1, y - 3.2 - hop, 0.6);
       circle(ctx, x + 1.1, y - 3.2 - hop, 0.6);
     }
+    } // (Mistlewick only)
 
     // befriended creatures live here
-    for (const id of ['nimbit', 'sprigget', 'whistlewing']) {
+    for (const id of residents(st)) {
       if (!st.creatures[id]) continue;
       const c = critters[id];
-      const hop = Math.sin(Math.min(1, c.hop) * Math.PI) * 9;
+      // Springle never walks: it bounces everywhere
+      const spring = c.bouncy && c.pause <= 0 ? Math.abs(Math.sin(t * 5.2)) * 7 : 0;
+      const hop = Math.sin(Math.min(1, c.hop) * Math.PI) * 9 + spring;
       const y = c.y - hop;
-      if (id !== 'whistlewing') {
+      if (!c.fly) {
         ctx.fillStyle = 'rgba(40,30,90,.18)';
         ellipse(ctx, c.x, c.y + 15, 12 - hop * 0.4, 3);
       }
-      drawCreature(ctx, id, c.x, y, has(id + '_idle') ? CREATURE_SCALE : 1.05, t, { happy: c.happy > 0, flip: c.dir === -1 });
+      // painted creatures and Tocktown's code-drawn ones are shown large; the old code-drawn Mistlewick ones stay small
+      drawCreature(ctx, id, c.x, y, has(id + '_idle') || tock ? CREATURE_SCALE : 1.05, t, { happy: c.happy > 0, flip: c.dir === -1 });
       [c.sx, c.sy] = toScreen(c.x, y, bob);
     }
 
@@ -3901,18 +5115,23 @@ function createWorldView(getState) {
         glow(ctx, f.x, f.y, f.r * (2.2 + tw), f.c, 0.25 + tw * 0.5);
       }
       // a slow twinkle on the cases still waiting
-      TEASERS.forEach((tz, i) => glow(ctx, tz.x - 4, tz.y - tz.r * 1.5, 7, '#c4eee6', Math.max(0, Math.sin(t * 1.1 + i * 2.4)) * 0.5));
+      teasers(st).forEach((tz, i) => {
+        const open = tz.world && isUnlocked(st, tz.world);
+        // an open case glows steadily, so it reads as somewhere to go
+        if (open) glow(ctx, tz.x, tz.y - tz.r, tz.r * 1.5, '#ffd98a', 0.3 + Math.sin(t * 2.2) * 0.12);
+        glow(ctx, tz.x - 4, tz.y - tz.r * 1.5, 7, open ? '#fff3c4' : '#c4eee6', Math.max(0, Math.sin(t * 1.1 + i * 2.4)) * 0.5);
+      });
     });
     ctx.restore();
 
-    band(ctx, 'mw_fore_mist', W, geom.oy + 436 * geom.s);
+    if (!tock) band(ctx, 'mw_fore_mist', W, geom.oy + 436 * geom.s);
     fx.draw(ctx);
   }
 
   /** Tap test in screen coords. Returns the creature id that was greeted, if any. */
   function tap(x, y) {
     const st = getState();
-    for (const id of ['whistlewing', 'sprigget', 'nimbit']) {
+    for (const id of residents(st).slice().reverse()) {
       const c = critters[id];
       if (!st.creatures[id]) continue;
       if (Math.hypot(x - c.sx, y - c.sy) < 30 * geom.s + 8) {
@@ -3926,24 +5145,24 @@ function createWorldView(getState) {
     return null;
   }
 
-  /** Tap test for the cases waiting on the desk. Returns 0, 1 or -1. */
+  /** Tap test for the other cases on the desk. Returns the teaser tapped, or null. */
   function tapTeaser(x, y) {
-    for (let i = 0; i < TEASERS.length; i++) {
-      const [sx, sy] = toScreen(TEASERS[i].x, TEASERS[i].y - TEASERS[i].r);
-      if (Math.hypot(x - sx, y - sy) < TEASERS[i].r * geom.s + 12) return i;
+    for (const tz of teasers(getState())) {
+      const [sx, sy] = toScreen(tz.x, tz.y - tz.r);
+      if (Math.hypot(x - sx, y - sy) < tz.r * geom.s + 12) return tz;
     }
-    return -1;
+    return null;
   }
 
   /** Sparkle burst where an upgrade was just built. */
   function celebrate(id) {
-    const a = ANCHOR[id];
+    const a = ANCHOR[id] || TOCK_ANCHOR[id];
     if (!a) return;
-    const [x, y] = toScreen(a[0], a[1], id === 'teapot' ? 0 : bobNow());
+    const [x, y] = toScreen(a[0], a[1], id === 'teapot' || id === 'mainspring' ? 0 : bobNow());
     fx.emit(x, y, { n: 38, color: ['#ffcf5c', '#fff3c4', '#ff8fa3', '#7fe3d8'], speed: [30, 190], life: [0.5, 1.3], size: [2, 5], gravity: 60, drag: 1.8 });
   }
 
-  return { update, draw, tap, tapTeaser, celebrate, anchorScreen: (id) => toScreen(ANCHOR[id][0], ANCHOR[id][1]), invalidate: () => (key = '') };
+  return { update, draw, tap, tapTeaser, celebrate, anchorScreen: (id) => toScreen((ANCHOR[id] || TOCK_ANCHOR[id])[0], (ANCHOR[id] || TOCK_ANCHOR[id])[1]), invalidate: () => (key = '') };
 }
 
 return { createWorldView };
@@ -3964,7 +5183,6 @@ const { TUNING: T } = __m['src/config/tuning.js'];
 const FIELD = { w: 360, h: 640 };
 const STEP = 1 / 120;
 
-const CHAIN_TICKS = Math.round(T.chainWindow / STEP);
 const SETTLE_TICKS = Math.round(T.settleSeconds / STEP);
 const MAX_TICKS = Math.round(T.maxDiveSeconds / STEP);
 
@@ -3986,7 +5204,9 @@ function createDive(level, mods = {}) {
     phase: 'aim', // 'aim' -> 'fly' -> 'done'
     outcome: null, // 'home' | 'mist' | 'fizzle'
     spark: { x: level.launcher.x, y: level.launcher.y, vx: 0, vy: 0, r: T.sparkRadius },
-    hearthW: level.hearth.w * (mods.hearthScale || 1),
+    hearthW: level.hearth.w * Math.min(T.hearthMaxScale, (mods.hearthScale || 1) * (1 + (mods.hearthGrow || 0))),
+    chainMax: Math.round((T.chainWindow + (mods.chainWindow || 0) + (mods.chainBonus || 0)) / STEP),
+    cogHits: 0,
     rekindles: T.baseRekindles + (mods.extraRekindles || 0),
     rekindlesUsed: 0,
     chain: 0,
@@ -4033,7 +5253,7 @@ function rekindle(sim, angle) {
   sim.rekindlesUsed++;
   sim.spark.vx = Math.cos(angle) * T.dashSpeed;
   sim.spark.vy = Math.sin(angle) * T.dashSpeed;
-  if (sim.chain > 0) sim.chainTicks = CHAIN_TICKS;
+  if (sim.chain > 0) sim.chainTicks = sim.chainMax;
   sim.stillTicks = 0;
   sim.inputs.push({ tick: sim.tick, kind: 'rekindle', angle });
   sim.events.push({ type: 'rekindle', x: sim.spark.x, y: sim.spark.y });
@@ -4042,7 +5262,7 @@ function rekindle(sim, angle) {
 
 function gather(sim, base, x, y, kind) {
   sim.chain++;
-  sim.chainTicks = CHAIN_TICKS;
+  sim.chainTicks = sim.chainMax;
   if (sim.chain > sim.bestChain) sim.bestChain = sim.chain;
   const tier = tierOf(sim.chain);
   if (tier !== sim.tier) {
@@ -4212,7 +5432,29 @@ function step(sim) {
         }
         e.hits++;
         sim.bumperHits++;
-        gather(sim, T.bumperValue + (m.bumperValue || 0), e.x, e.y, 'bumper');
+        gather(sim, T.bumperValue + (m.bumperValue || 0) + (m.bounceBonus || 0), e.x, e.y, 'bumper');
+        sim.events[sim.events.length - 1].id = e.id;
+      } else {
+        sim.events.push({ type: 'thud', x: e.x, y: e.y, id: e.id });
+      }
+    } else if (e.kind === 'cog') {
+      // A spinning cog: bounces like a bell bloom, and while it still has
+      // charge it also throws the Spark sideways, the way it is turning.
+      const n = hitCircle(s, e.x, e.y, e.r);
+      if (!n) continue;
+      const vn = s.vx * n.nx + s.vy * n.ny;
+      if (vn >= 0) continue;
+      const charged = e.hits < T.bumperCharges;
+      const rest = charged ? 0.9 : T.bumperSpentRest;
+      s.vx -= (1 + rest) * vn * n.nx;
+      s.vy -= (1 + rest) * vn * n.ny;
+      if (charged) {
+        s.vx += -n.ny * e.dir * T.cogFling;
+        s.vy += n.nx * e.dir * T.cogFling;
+        e.hits++;
+        sim.cogHits++;
+        sim.bumperHits++;
+        gather(sim, T.cogValue + (m.bumperValue || 0) + (m.bounceBonus || 0), e.x, e.y, 'cog');
         sim.events[sim.events.length - 1].id = e.id;
       } else {
         sim.events.push({ type: 'thud', x: e.x, y: e.y, id: e.id });
@@ -4273,6 +5515,7 @@ function summarize(sim) {
     bestChain: sim.bestChain,
     motes: sim.motes,
     bumperHits: sim.bumperHits,
+    cogHits: sim.cogHits,
     lit: sim.lit.slice(),
     lanternsLitNow: sim.lanternsLitNow.length,
     gotRelic: sim.gotRelic,
@@ -4308,7 +5551,7 @@ function previewPath(level, x, y, vx, vy, maxTicks = 150) {
       if ((s.x - seg.x1 - dx * t) ** 2 + (s.y - seg.y1 - dy * t) ** 2 < R * R) hit = true;
     }
     for (const e of level.ents) {
-      if (e.kind === 'bumper' && (s.x - e.x) ** 2 + (s.y - e.y) ** 2 < (s.r + e.r) ** 2) hit = true;
+      if ((e.kind === 'bumper' || e.kind === 'cog') && (s.x - e.x) ** 2 + (s.y - e.y) ** 2 < (s.r + e.r) ** 2) hit = true;
     }
     if (i % 6 === 5) pts.push({ x: s.x, y: s.y });
     if (hit) break;
@@ -4338,6 +5581,16 @@ const SLOTS = [
   [70, 354, 2], [180, 354, 2], [290, 354, 2],
   [124, 446, 3], [236, 446, 3]
 ];
+
+// Tocktown's hollows are laid out like a clock face: the hours round a ring,
+// with one anchor at the centre where the hands meet.
+const DIAL_SLOTS = [
+  [180, 172, 0], [96, 210, 0], [264, 210, 0],
+  [62, 304, 1], [298, 304, 1],
+  [180, 306, 2], [98, 398, 2], [262, 398, 2],
+  [142, 458, 3], [218, 458, 3]
+];
+const LAYOUTS = { rows: SLOTS, dial: DIAL_SLOTS };
 
 // The first hollow every player sees (hollow 0) is authored by hand.
 const TUTORIAL = {
@@ -4403,16 +5656,18 @@ function distToSegment(px, py, seg) {
  * @param hollow { index, seed, lit[], relic, relicTaken, bubble, bubbleTaken, bubbleMoving }
  * @param mods   restoration modifiers: bumpers, geysers, moteBonus
  */
-function buildLevel(hollow, mods = {}) {
+function buildLevel(hollow, mods = {}, style = {}) {
   const rng = mulberry32(hollow.seed);
-  const tutorial = hollow.index === 0;
+  const layout = LAYOUTS[style.layout] || SLOTS;
+  // only the very first hollow of the first world is the hand-made lesson
+  const tutorial = hollow.index === 0 && layout === SLOTS;
   const launcher = { x: 180, y: 58 };
   const hearth = { x: tutorial ? 180 : 180 + Math.round(range(rng, -28, 28)), y: 606, w: T.hearthWidth };
   const segments = [];
   const ents = [];
   let motes = [];
 
-  const slots = SLOTS.map(([x, y, row], i) => ({
+  const slots = layout.map(([x, y, row], i) => ({
     i,
     row,
     x: tutorial ? x : x + Math.round(range(rng, -10, 10)),
@@ -4453,10 +5708,22 @@ function buildLevel(hollow, mods = {}) {
     }
   });
 
-  const nBumpers = tutorial ? TUTORIAL.bumpers.length : Math.min(4, 1 + (mods.bumpers || 0));
+  // Spinning cogs (Tocktown) share the anchors with bell blooms and the relic,
+  // so on a clock-face hollow the blooms give way: there is always room for
+  // the relic, every cog, and at least one open anchor.
+  const nCogs = layout === DIAL_SLOTS ? Math.min(3, mods.cogs || 0) : 0;
+  const hasRelic = !tutorial && hollow.relic && !hollow.relicTaken;
+  let nBumpers = tutorial ? TUTORIAL.bumpers.length : Math.min(4, 1 + (mods.bumpers || 0));
+  if (layout === DIAL_SLOTS) nBumpers = Math.max(0, Math.min(nBumpers, pool.length - nCogs - (hasRelic ? 1 : 0) - 1));
   for (let b = 0; b < nBumpers && pool.length; b++) {
     const s = take((q) => q.row >= 1);
     ents.push({ kind: 'bumper', x: s.x, y: s.y, r: 17 });
+  }
+
+  // alternate which way the cogs turn
+  for (let c = 0; c < nCogs && pool.length; c++) {
+    const s = take((q) => q.row >= 1);
+    ents.push({ kind: 'cog', x: s.x, y: s.y, r: T.cogRadius, dir: c % 2 ? -1 : 1 });
   }
 
   if (!tutorial && hollow.relic && !hollow.relicTaken && pool.length) {
@@ -4513,7 +5780,7 @@ function buildLevel(hollow, mods = {}) {
     // in the gap between the corner vent and the widest the Hearth can be, so
     // it never overlaps either.
     const side = hearth.x > 180 ? -1 : hearth.x < 180 ? 1 : firstSide;
-    const reach = (T.hearthWidth * 1.45) / 2 + 6;
+    const reach = (T.hearthWidth * T.hearthMaxScale) / 2 + 6;
     const x = side < 0 ? (66 + hearth.x - reach) / 2 : (FIELD.w - 66 + hearth.x + reach) / 2;
     ents.push({ kind: 'geyser', x: Math.round(x), y: 620, w: 44 });
   }
@@ -4547,7 +5814,7 @@ function buildLevel(hollow, mods = {}) {
   }
   for (const p of kept) ents.push({ kind: 'mote', x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 });
 
-  return { index: hollow.index, launcher, hearth, segments, ents, lit: hollow.lit.slice() };
+  return { index: hollow.index, launcher, hearth, segments, ents, lit: hollow.lit.slice(), theme: style.theme || 'mist' };
 }
 
 return { buildLevel };
@@ -4567,6 +5834,7 @@ const { has, place, cover, assetVersion } = __m['src/render/assets.js'];
 const { FIELD } = __m['src/sim/diveSim.js'];
 const { TUNING: T } = __m['src/config/tuning.js'];
 const { mulberry32 } = __m['src/core/rng.js'];
+const { gear } = __m['src/render/tocktownScene.js'];
 
 function createDiveView() {
   const fx = new Particles(320);
@@ -4585,6 +5853,7 @@ function createDiveView() {
   let awake = 0; // eased fraction of lanterns lit
   let endGlow = 0;
   let reduced = false; // accessibility: no shake, softer flashes
+  let theme = 'mist'; // which world's hollow this is: 'mist' (Mistlewick) or 'brass' (Tocktown)
 
   function fit(W, H) {
     geom.W = W;
@@ -4600,6 +5869,7 @@ function createDiveView() {
 
   function begin(sim, trailColors, reducedMotion) {
     reduced = !!reducedMotion;
+    theme = sim.level.theme || 'mist';
     fx.clear();
     pops.clear();
     pulses.clear();
@@ -4620,6 +5890,7 @@ function createDiveView() {
     bg.height = Math.round(H * px);
     const g = bg.getContext('2d');
     g.scale(px, px);
+    if (theme === 'brass') return buildBrassBg(g, W, H, seed);
     if (cover(g, 'dive_backdrop', W, H)) return;
     const sky = g.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, '#1a1550');
@@ -4667,6 +5938,61 @@ function createDiveView() {
     }
   }
 
+  /** Inside the pocket watch: midnight blue, a faint dial, and wheels turning far off. */
+  function buildBrassBg(g, W, H, seed) {
+    const sky = g.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#0b1230');
+    sky.addColorStop(0.45, '#1f2a62');
+    sky.addColorStop(0.8, '#4a3566');
+    sky.addColorStop(1, '#2a1d44');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, W, H);
+    g.translate(geom.x0, geom.y0);
+    g.scale(geom.fs, geom.fs);
+    additive(g, () => {
+      glow(g, 180, -40, 260, '#f5c66e', 0.22);
+      glow(g, 180, 640, 300, '#ff9d6b', 0.16);
+    });
+    // the dial: a ring of hour marks the hollow is laid out on
+    g.strokeStyle = 'rgba(245,198,110,.2)';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.arc(180, 316, 164, 0, Math.PI * 2);
+    g.stroke();
+    g.lineCap = 'round';
+    for (let h = 0; h < 12; h++) {
+      const a = (h / 12) * Math.PI * 2;
+      const big = h % 3 === 0;
+      g.strokeStyle = `rgba(245,198,110,${big ? 0.3 : 0.18})`;
+      g.lineWidth = big ? 3 : 1.6;
+      g.beginPath();
+      g.moveTo(180 + Math.cos(a) * (big ? 144 : 150), 316 + Math.sin(a) * (big ? 144 : 150));
+      g.lineTo(180 + Math.cos(a) * 160, 316 + Math.sin(a) * 160);
+      g.stroke();
+    }
+    // far wheels of the movement
+    const rng = mulberry32(seed);
+    for (let i = 0; i < 7; i++) {
+      const r = 26 + rng() * 44;
+      gear(g, rng() * 360, 80 + rng() * 500, r, rng() * 6, `rgba(245,198,110,${0.035 + rng() * 0.04})`, 'rgba(245,198,110,.03)');
+    }
+    // the case walls curving in at the sides
+    for (const side of [-1, 1]) {
+      const cx = side < 0 ? -322 : 682;
+      g.fillStyle = 'rgba(248,215,137,.07)';
+      circle(g, cx, 330, 350);
+      g.strokeStyle = 'rgba(245,185,66,.34)';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(cx, 330, 350, 0, Math.PI * 2);
+      g.stroke();
+    }
+    for (let i = 0; i < 26; i++) {
+      g.fillStyle = `rgba(255,224,160,${0.12 + rng() * 0.25})`;
+      circle(g, rng() * 360, 380 + rng() * 200, 0.7 + rng() * 0.9);
+    }
+  }
+
   // ------------------------------------------------------------ events -> effects
 
   function pop(x, y, text, color, size, life) {
@@ -4694,6 +6020,12 @@ function createDiveView() {
         fx.emit(x, y, { n: 12, color: ['#ff8fa3', '#ffd3dd', '#ffcf5c'], speed: [50, 170], life: [0.3, 0.7], size: [2, 4] });
         pop(x, y - 26, '+' + ev.value, '#ffd3dd', 13, 0.7);
         shake = Math.max(shake, 0.2);
+        break;
+      case 'cog':
+        pulses.set(ev.id, 1);
+        fx.emit(x, y, { n: 14, color: ['#f5b942', '#fff3c4', '#f8d789'], speed: [60, 200], life: [0.3, 0.7], size: [2, 4] });
+        pop(x, y - 28, '+' + ev.value, '#f8d789', 13, 0.7);
+        shake = Math.max(shake, 0.22);
         break;
       case 'thud':
         pulses.set(ev.id, 0.5);
@@ -4806,18 +6138,24 @@ function createDiveView() {
       g.stroke();
       return;
     }
-    g.strokeStyle = '#c9a6c4';
+    g.strokeStyle = theme === 'brass' ? '#8a5a2a' : '#c9a6c4';
     g.lineWidth = 13;
     g.beginPath();
     g.moveTo(s.x1, s.y1 + 3);
     g.lineTo(s.x2, s.y2 + 3);
     g.stroke();
-    g.strokeStyle = '#fff4dc';
+    g.strokeStyle = theme === 'brass' ? '#f0c66e' : '#fff4dc';
     g.lineWidth = 10;
     g.beginPath();
     g.moveTo(s.x1, s.y1);
     g.lineTo(s.x2, s.y2);
     g.stroke();
+    if (theme === 'brass') {
+      // a brass rail with rivets instead of a cloud
+      g.fillStyle = '#a8742a';
+      for (let k = 0.15; k < 1; k += 0.35) circle(g, s.x1 + (s.x2 - s.x1) * k, s.y1 + (s.y2 - s.y1) * k, 1.8);
+      return;
+    }
     g.fillStyle = '#fff4dc';
     for (let k = 0.2; k < 1; k += 0.3) circle(g, s.x1 + (s.x2 - s.x1) * k, s.y1 + (s.y2 - s.y1) * k - 3, 6.5);
   }
@@ -4875,7 +6213,12 @@ function createDiveView() {
         for (let k = 0; k < T.bumperCharges - e.hits; k++) circle(g, e.x - 5 + k * 5, e.y + 4, 1.4);
       } else if (e.kind === 'lantern') {
         const lit = sim.lit[e.li];
-        if (place(g, lit ? 'lantern_on' : 'lantern_off', e.x, e.y - 1)) continue;
+        if (theme !== 'brass' && place(g, lit ? 'lantern_on' : 'lantern_off', e.x, e.y - 1)) continue;
+        // code-drawn lamp, enlarged to fill its hit area
+        g.save();
+        g.translate(e.x, e.y);
+        g.scale(1.4, 1.4);
+        g.translate(-e.x, -e.y);
         g.strokeStyle = lit ? '#b86a0c' : '#3a3166';
         g.lineWidth = 1.6;
         g.beginPath();
@@ -4902,6 +6245,23 @@ function createDiveView() {
         g.moveTo(e.x + 3, e.y - 9);
         g.lineTo(e.x + 3, e.y + 9);
         g.stroke();
+        g.restore();
+      } else if (e.kind === 'cog') {
+        // a spinning cog: it turns the way it will throw the Spark
+        const charged = e.hits < T.bumperCharges;
+        const sc = 1 + pulse * 0.2;
+        const a = charged ? t * 1.7 * e.dir + pulse * e.dir : 0.4;
+        gear(g, e.x, e.y + 1.5, e.r * 1.12 * sc, a, charged ? '#a8742a' : '#5f5a7c', charged ? '#a8742a' : '#5f5a7c');
+        gear(g, e.x, e.y, e.r * 1.12 * sc, a, charged ? '#f0b84a' : '#8a86b3', charged ? '#fff0c0' : '#a9a5c8');
+        // an arrow on the hub shows which way it spins
+        g.strokeStyle = charged ? '#7a2f3f' : '#5f5a7c';
+        g.lineWidth = 1.6;
+        g.lineCap = 'round';
+        g.beginPath();
+        g.arc(e.x, e.y, e.r * 0.2, e.dir > 0 ? -2.2 : -0.9, e.dir > 0 ? 0.6 : -3.8, e.dir < 0);
+        g.stroke();
+        g.fillStyle = '#a8742a';
+        for (let k = 0; k < T.bumperCharges - e.hits; k++) circle(g, e.x - 5 + k * 5, e.y + e.r * 0.58, 1.5);
       } else if (e.kind === 'geyser') {
         const live = e.hits < T.geyserCharges;
         if (place(g, 'geyser_vent', e.x, e.y + 8, { w: e.w, alpha: live ? 1 : 0.45 })) continue;
@@ -4951,7 +6311,7 @@ function createDiveView() {
     // the spout the Spark drops from
     const L = lvl.launcher;
     if (place(g, 'dive_spout', L.x, L.y - 48)) return;
-    g.fillStyle = '#d98a9e';
+    g.fillStyle = theme === 'brass' ? '#a8742a' : '#d98a9e';
     g.beginPath();
     g.moveTo(L.x - 30, -30);
     g.lineTo(L.x + 30, -30);
@@ -4959,7 +6319,7 @@ function createDiveView() {
     g.lineTo(L.x - 15, L.y - 10);
     g.closePath();
     g.fill();
-    g.fillStyle = '#f7c1cb';
+    g.fillStyle = theme === 'brass' ? '#e7ae4a' : '#f7c1cb';
     g.beginPath();
     g.moveTo(L.x - 30, -30);
     g.lineTo(L.x + 12, -30);
@@ -5010,7 +6370,7 @@ function createDiveView() {
       if (e.kind === 'lantern' && sim.lit[e.li]) hole(e.x, e.y, 120);
       else if (e.kind === 'lantern') hole(e.x, e.y, 46);
       else if ((e.kind === 'relic' || e.kind === 'bubble') && e.alive) hole(e.x, e.y, 48);
-      else if (e.kind === 'bumper') hole(e.x, e.y, 40);
+      else if (e.kind === 'bumper' || e.kind === 'cog') hole(e.x, e.y, 42);
       else if (e.kind === 'geyser') hole(e.x, e.y - 4, 44);
     }
     for (const s of sim.level.segments) hole((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2, 48);
@@ -5041,12 +6401,14 @@ function createDiveView() {
           glow(g, e.x, by, 3.4, '#ffffff', 1);
         } else if (e.kind === 'lantern' && sim.lit[e.li]) {
           const p = pulses.get('L' + Math.round(e.x) + '_' + Math.round(e.y)) || 0;
-          if (has('lantern_on_glow')) place(g, 'lantern_on', e.x, e.y - 1, { glow: true, scale: 1 + p * 0.5, alpha: 0.7 + p * 0.3 + Math.sin(t * 3 + e.id) * 0.06 });
+          if (theme !== 'brass' && has('lantern_on_glow')) place(g, 'lantern_on', e.x, e.y - 1, { glow: true, scale: 1 + p * 0.5, alpha: 0.7 + p * 0.3 + Math.sin(t * 3 + e.id) * 0.06 });
           else glow(g, e.x, e.y, 44 + p * 40 + Math.sin(t * 3 + e.id) * 3, '#ffcf5c', 0.6 + p * 0.4);
         } else if (e.kind === 'lantern') {
           glow(g, e.x, e.y, 26, '#b9a6ff', 0.3 + Math.sin(t * 2 + e.id) * 0.12);
         } else if (e.kind === 'relic') {
           glow(g, e.x, e.y, 24 + Math.sin(t * 3) * 3, '#ffcf5c', 0.5);
+        } else if (e.kind === 'cog' && pulses.get(e.id)) {
+          glow(g, e.x, e.y, e.r * 2.8, '#f5b942', pulses.get(e.id) * 0.8);
         } else if (e.kind === 'bumper' && pulses.get(e.id)) {
           glow(g, e.x, e.y, e.r * 2.6, '#ff8fa3', pulses.get(e.id) * 0.8);
         } else if (e.kind === 'geyser' && e.hits < T.geyserCharges) {
@@ -5193,14 +6555,20 @@ function createDiveController(app) {
     if (practice) ensureHollow(s);
     else if (!startDive(s, now).ok) return false;
     const mods = modsOf(s);
-    sim = createDive(buildLevel(s.hollow, mods), mods);
+    sim = createDive(buildLevel(s.hollow, mods, worldOf(s).dive), mods);
     view.begin(sim, (TRAILS[s.trail] || TRAILS.default).colors, s.settings.reducedMotion);
     d = { practice, pointer: null, aim: null, acc: 0, ended: 0, settled: false, teach: false, hintUntil: 0, first: s.stats.dives === 0 && !practice };
     track('action_spent', { hollow: s.hollow.index, sparks_left: s.sparks, practice });
     if (!practice && s.sparks === 0) track('sparks_depleted', { next_in: T.sparkRegenSec });
     app.save();
     app.ui.showDive(sim, practice);
-    app.ui.hint(d.first ? 'Touch and drag to aim. Let go to drop your Spark.' : null);
+    let hint = d.first ? 'Touch and drag to aim. Let go to drop your Spark.' : null;
+    // the first time a spinning cog appears, say what it does
+    if (!hint && !s.flags.cogs && sim.ents.some((e) => e.kind === 'cog')) {
+      s.flags.cogs = true;
+      hint = 'New: spinning cogs fling your Spark the way they turn.';
+    }
+    app.ui.hint(hint);
     return true;
   }
 
@@ -5214,6 +6582,7 @@ function createDiveController(app) {
         sfx.lantern();
         break;
       case 'bumper':
+      case 'cog':
         sfx.bumper(ev.chain % 7);
         break;
       case 'thud':
@@ -5229,7 +6598,7 @@ function createDiveController(app) {
       case 'creature': {
         sfx.creature();
         const def = worldOf(app.state).creatures.find((c) => c.id === ev.creature);
-        view.pop(ev.x, ev.y - 30, def.name + ' woke up!', '#cfe8ff', 16, 1.5);
+        if (def) view.pop(ev.x, ev.y - 30, def.name + ' woke up!', '#cfe8ff', 16, 1.5);
         break;
       }
       case 'relic':
@@ -5465,9 +6834,9 @@ __m['src/ui/sheets.js'] = (function () {
 const { ICON, rewardHtml, rewardText } = __m['src/ui/dom.js'];
 const { fmt, fmtTime } = __m['src/core/util.js'];
 const { TUNING: T } = __m['src/config/tuning.js'];
-const { COMING_SOON } = __m['src/config/worlds.js'];
+const { COMING_SOON, WORLDS, WORLD_ORDER } = __m['src/config/worlds.js'];
 const { TRAILS, EVENT_UNLOCK_RANK } = __m['src/config/events.js'];
-const { worldOf, upgradeOffer, restoration, bondLevel } = __m['src/progression/state.js'];
+const { worldOf, upgradeOffer, restoration, bondLevel, unlockNeed, setDone, totalLevels, maxLevels } = __m['src/progression/state.js'];
 const { buyUpgrade, setCompanion, setTrail, craftArtifact } = __m['src/progression/actions.js'];
 const { dailyList, claimDaily, refreshDaily } = __m['src/progression/objectives.js'];
 const { currentEvent, eventUnlocked, eventMilestones, claimMilestone } = __m['src/progression/events.js'];
@@ -5530,10 +6899,28 @@ function createSheets(app, { toast, refresh, root }) {
       </div>
       <div class="sh-body">
         ${rows.join('')}
-        <div class="soon">
-          <p class="eyebrow">Next on the Bureau's shelf · placeholder teasers</p>
-          ${COMING_SOON.map((w) => `<div class="soon-row"><b>${w.name}</b><span>${w.object}. ${w.tagline}</span></div>`).join('')}
-        </div>
+        ${shelfHtml()}
+      </div>`;
+  }
+
+  /** The Bureau's other cases: travel to the open ones, see what opens the rest. */
+  function shelfHtml() {
+    const s = app.state;
+    const others = WORLD_ORDER.filter((id) => id !== s.worldId).map((id) => {
+      const w = WORLDS[id];
+      const need = unlockNeed(s, id);
+      if (need) {
+        const gate = WORLDS[w.unlock.world];
+        return `<div class="soon-row"><b>Case ${w.caseNo} · ${w.name}</b><span>${w.object}. Restore ${need} more thing${need === 1 ? '' : 's'} in ${gate.name} to open it.</span></div>`;
+      }
+      const pct = Math.round((totalLevels(s, id) / maxLevels(s, id)) * 100);
+      return `<div class="soon-row go"><span><b>Case ${w.caseNo} · ${w.name}</b><span>${w.object}. ${pct}% restored.</span></span><button class="btn btn-small" data-act="travel" data-id="${id}">Travel</button></div>`;
+    });
+    return `
+      <div class="soon">
+        <p class="eyebrow">Also on the Bureau's desk</p>
+        ${others.join('')}
+        ${COMING_SOON.map((w) => `<div class="soon-row"><b>${w.name}</b><span>${w.object}. ${w.tagline} Later update.</span></div>`).join('')}
       </div>`;
   }
 
@@ -5562,6 +6949,11 @@ function createSheets(app, { toast, refresh, root }) {
       sfx.rankUp();
       track('rank_up', { rank: rk.rank });
       toast(`Promoted to <b>${rk.name}</b> +${rk.sparks} Sparks`, 'good');
+    }
+    for (const w of r.opened || []) {
+      track('world_opened', { world: w.id });
+      app.world.invalidate();
+      setTimeout(() => toast(`<b>Case ${w.caseNo} has arrived: ${w.name}</b> Tap ${w.dive.into} on the desk to open it.`, 'good'), 900);
     }
     if (r.worldComplete) setTimeout(() => open('complete'), 1400);
     refresh();
@@ -5616,14 +7008,14 @@ function createSheets(app, { toast, refresh, root }) {
       const has = s.artifacts[sel.id];
       if (has) detail = `<b>${sel.name}</b><p>${sel.lore}</p>`;
       else if (s.echoes >= T.echoCost) detail = `<b>Not yet recovered</b><p>Trade ${T.echoCost} Echoes to restore this piece.</p><button class="btn btn-small" data-act="craft" data-id="${sel.id}">Restore with ${T.echoCost} Echoes</button>`;
-      else detail = `<b>Not yet recovered</b><p>Relic crates hide under blue roofs inside hollows. ${T.echoCost} Echoes can also restore this exact piece.</p>`;
+      else detail = `<b>Not yet recovered</b><p>Relic crates hide under little roofs inside hollows. ${T.echoCost} Echoes can also restore this exact piece.</p>`;
     }
     return `
       <div class="set-head">
         <b>${set.name}</b>
         <span>${owned} of ${set.items.length} recovered</span>
       </div>
-      <p class="set-reward">${s.setRewarded ? ICON.check + ' Set complete. Reward collected.' : 'Complete the set: ' + rewardText(set.reward)}</p>
+      <p class="set-reward">${setDone(s) ? ICON.check + ' Set complete. Reward collected.' : 'Complete the set: ' + rewardText(set.reward)}</p>
       <div class="art-grid">
         ${set.items.map((it) => `
           <button class="art${s.artifacts[it.id] ? ' owned' : ''}${picked === it.id ? ' sel' : ''}" data-act="artifact" data-id="${it.id}">
@@ -5744,16 +7136,16 @@ function createSheets(app, { toast, refresh, root }) {
 
   function completeHtml() {
     const world = worldOf(app.state);
+    const lead = world.id === 'tocktown'
+      ? 'The mainspring is wound, the tower keeps the hour, and the town is ticking again.'
+      : 'Every crack is sealed with gold, the lanterns are lit, and the village is home again.';
     return `
       ${head('Case ' + world.caseNo + ' closed', world.name + ' is awake')}
       <div class="sh-body">
-        <p class="lead">Every crack is sealed with gold, the lanterns are lit, and the village is home again. This is the end of the prototype's first world.</p>
-        <p>Hollows, daily tasks and events keep going, and your village is yours to visit.</p>
-        <div class="soon">
-          <p class="eyebrow">Next on the Bureau's shelf · placeholder teasers</p>
-          ${COMING_SOON.map((w) => `<div class="soon-row"><b>${w.name}</b><span>${w.object}. ${w.tagline}</span></div>`).join('')}
-        </div>
-        <button class="btn wide" data-act="close">Back to the village</button>
+        <p class="lead">${lead}</p>
+        <p>Hollows, daily tasks and events keep going, and ${world.name} is yours to visit.</p>
+        ${shelfHtml()}
+        <button class="btn wide" data-act="close">Back to ${world.name}</button>
       </div>`;
   }
 
@@ -5818,6 +7210,8 @@ function createSheets(app, { toast, refresh, root }) {
           app.save();
         }
         break;
+      case 'travel':
+        return app.travel(id);
       case 'trail':
         if (setTrail(s, id)) {
           sfx.tap();
@@ -6010,7 +7404,7 @@ function createReward(app, { root }) {
         ${extra.join('')}
         <div class="rchips">${chips.join('')}</div>`}
         <div class="rbtns">
-          <button class="btn btn-ghost" id="r-home">${ICON.home}<span>Village</span></button>
+          <button class="btn btn-ghost" id="r-home">${ICON.home}<span>${world.homeWord}</span></button>
           <button class="btn" id="r-again">${canAgain ? `Dive again <span class="dive-cost">${ICON.spark}1</span>` : 'Practice dive'}</button>
         </div>
       </div>`;
@@ -6074,6 +7468,7 @@ const { createSheets } = __m['src/ui/sheets.js'];
 const { createReward } = __m['src/ui/reward.js'];
 const { sfx } = __m['src/audio/audio.js'];
 const { track } = __m['src/analytics/analytics.js'];
+const { WORLDS } = __m['src/config/worlds.js'];
 
 function createUi(app) {
   const root = document.getElementById('ui');
@@ -6084,7 +7479,7 @@ function createUi(app) {
         <h1 class="logo">Wonder<span>lost</span></h1>
       </div>
       <div class="title-bottom">
-        <p class="case-line"><b>Case 001</b> · A cracked teapot<small>Something inside it is still warm.</small></p>
+        <p class="case-line" id="t-case"></p>
         <button class="btn btn-xl" id="b-begin">Open the case</button>
         <p class="fine">Prototype ${T.version} · progress saves on this device</p>
       </div>
@@ -6203,7 +7598,9 @@ function createUi(app) {
     const wait = nextSparkIn(s, now);
     $('h-spark-t').textContent = wait > 0 ? fmtTime(wait) : '';
 
-    $('h-world').textContent = worldOf(s).name;
+    const world = worldOf(s);
+    $('h-world').textContent = world.name;
+    $('t-case').innerHTML = `<b>Case ${world.caseNo}</b> · ${world.object}<small>${world.titleLine}</small>`;
     const pct = Math.round(restoration(s) * 100);
     $('h-restored').textContent = pct >= 100 ? 'Fully restored' : pct + '% restored';
 
@@ -6213,6 +7610,11 @@ function createUi(app) {
     if (!cp) {
       chip.className = 'chip closed';
       chip.innerHTML = `<span class="chip-kicker">Case files</span><span class="chip-text">All cases closed. New ones arrive with the next world.</span>`;
+    } else if (cp.locked) {
+      // the next case belongs to a world that is not open yet: say what opens it
+      const n = cp.locked.need;
+      chip.className = 'chip closed';
+      chip.innerHTML = `<span class="chip-kicker">Next case · ${cp.locked.world.name}</span><span class="chip-text">Restore ${n} more thing${n === 1 ? '' : 's'} in ${cp.locked.gate.name} to open ${cp.locked.world.dive.into}.</span>`;
     } else {
       chip.className = 'chip' + (cp.done ? ' done' : '');
       chip.innerHTML = `
@@ -6278,6 +7680,10 @@ function createUi(app) {
   const sheets = createSheets(app, { toast, refresh, root });
   const reward = createReward(app, { root, toast });
 
+  {
+    const w = worldOf(app.state);
+    $('t-case').innerHTML = `<b>Case ${w.caseNo}</b> · ${w.object}<small>${w.titleLine}</small>`;
+  }
   $('b-begin').addEventListener('click', () => app.begin());
   $('b-dive').addEventListener('click', () => {
     sfx.tap();
@@ -6290,6 +7696,7 @@ function createUi(app) {
   $('b-case').addEventListener('click', () => {
     const cp = caseProgress(app.state);
     if (!cp) return;
+    if (cp.locked) return sheets.open('restore');
     if (cp.done) {
       const c = claimCase(app.state);
       sfx.claim();
@@ -6301,7 +7708,9 @@ function createUi(app) {
       sheets.open(cp.c.nudge);
     } else {
       sfx.tap();
-      toast('Dive into the teapot to work on this case.');
+      const here = worldOf(app.state);
+      if (cp.c.world && cp.c.world !== here.id) toast(`This case is in <b>${WORLDS[cp.c.world].name}</b>. Tap it on the desk to travel there.`);
+      else toast(`Dive into ${here.dive.into} to work on this case.`);
     }
   });
 
@@ -6335,12 +7744,12 @@ __m['src/main.js'] = (function () {
 const { safeStorage, load, save, reset } = __m['src/persistence/save.js'];
 const { initAnalytics, track, flushAnalytics } = __m['src/analytics/analytics.js'];
 const { initAudio, resumeAudio, sfx } = __m['src/audio/audio.js'];
-const { newState, regenSparks, restoration } = __m['src/progression/state.js'];
-const { petCreature } = __m['src/progression/actions.js'];
+const { newState, regenSparks, restoration, unlockNeed } = __m['src/progression/state.js'];
+const { petCreature, travel } = __m['src/progression/actions.js'];
+const { WORLDS, COMING_SOON } = __m['src/config/worlds.js'];
 const { refreshDaily } = __m['src/progression/objectives.js'];
 const { refreshEvent } = __m['src/progression/events.js'];
 const { createWorldView } = __m['src/render/worldView.js'];
-const { COMING_SOON } = __m['src/config/worlds.js'];
 const { glow, additive } = __m['src/render/gfx.js'];
 const { loadAssets, setSlotDebug, has } = __m['src/render/assets.js'];
 const { createDiveController } = __m['src/game/diveController.js'];
@@ -6406,6 +7815,28 @@ const app = {
       app.ui.toast('Glow restores the village. Collect your case reward, then tap <b>Restore</b>.');
     }
     app.save();
+  },
+
+  /** Move to another open world: a fade, then that world's home scene. */
+  travel(worldId) {
+    if (app.screen !== 'home') return;
+    const need = unlockNeed(app.state, worldId);
+    const world = WORLDS[worldId];
+    if (!world || worldId === app.state.worldId) return;
+    if (need) {
+      const gate = WORLDS[world.unlock.world];
+      app.ui.toast(`<b>Case ${world.caseNo} · ${world.name}</b> Restore ${need} more thing${need === 1 ? '' : 's'} in ${gate.name} to open it.`);
+      return;
+    }
+    app.ui.closeSheet();
+    app.ui.wipe(() => {
+      const r = travel(app.state, worldId);
+      if (!r.ok) return;
+      track('world_travel', { world: worldId, first: r.first });
+      app.world.invalidate();
+      app.goHome();
+      app.ui.toast(r.first ? `<b>Case ${world.caseNo} · ${world.name}</b> ${world.tagline}` : `Back in <b>${world.name}</b>`, r.first ? 'good' : '');
+    });
   },
 
   resetProgress() {
@@ -6482,10 +7913,14 @@ stage.addEventListener('pointerdown', (e) => {
       app.save();
       app.ui.refresh();
     } else {
-      const next = COMING_SOON[app.world.tapTeaser(x, y)];
-      if (next) {
+      const tz = app.world.tapTeaser(x, y);
+      if (tz) {
         sfx.tap();
-        app.ui.toast(`<b>${next.name}</b> · ${next.object}. This case opens in a later update.`);
+        if (tz.world) app.travel(tz.world);
+        else {
+          const next = COMING_SOON[tz.soon];
+          app.ui.toast(`<b>${next.name}</b> · ${next.object}. This case opens in a later update.`);
+        }
       }
     }
   }

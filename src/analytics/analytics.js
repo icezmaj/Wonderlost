@@ -29,6 +29,8 @@ const SCHEMA = {
   sparks_depleted: ['next_in'],
   setting_changed: ['key', 'value'],
   sheet_opened: ['sheet'],
+  world_opened: ['world'],
+  world_travel: ['world', 'first'],
   save_reset: []
 };
 

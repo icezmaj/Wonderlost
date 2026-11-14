@@ -5,8 +5,9 @@
 
 import { TUNING as T } from '../config/tuning.js';
 import { mulberry32, hashSeed, pick } from '../core/rng.js';
-import { worldOf, modsOf, rankOf, bondLevel, upgradeLevel, upgradeOffer, totalLevels, maxLevels, regenSparks } from './state.js';
-import { grant } from './objectives.js';
+import { worldOf, modsOf, rankOf, bondLevel, upgradeLevel, upgradeOffer, totalLevels, maxLevels, regenSparks, isUnlocked } from './state.js';
+import { grant, bumpWorld } from './objectives.js';
+import { WORLDS, WORLD_ORDER } from '../config/worlds.js';
 import { addEventPoints } from './events.js';
 
 const creatureArrived = (s, c) => c.arrives.always || upgradeLevel(s, c.arrives.upgrade) >= c.arrives.level;
@@ -75,9 +76,9 @@ function startDive(s, now) {
 }
 
 function checkSetComplete(s, world) {
-  if (s.setRewarded) return false;
+  if (s.sets[world.artifactSet.id]) return false;
   if (!world.artifactSet.items.every((it) => s.artifacts[it.id])) return false;
-  s.setRewarded = true;
+  s.sets[world.artifactSet.id] = true;
   grant(s, world.artifactSet.reward);
   return true;
 }
@@ -101,6 +102,7 @@ function drawArtifact(s, world, rng) {
     s.artifacts[it.id] = 1;
     s.lastWasDup = false;
     s.stats.artifactsOwned++;
+    bumpWorld(s, 'artifactsOwned');
     return { id: it.id, isNew: true, setComplete: checkSetComplete(s, world) };
   }
   const it = pick(rng, owned);
@@ -117,6 +119,7 @@ function craftArtifact(s, id) {
   s.echoes -= T.echoCost;
   s.artifacts[id] = 1;
   s.stats.artifactsOwned++;
+  bumpWorld(s, 'artifactsOwned');
   return { id, setComplete: checkSetComplete(s, world) };
 }
 
@@ -126,6 +129,7 @@ function befriend(s, id) {
   if (!was) {
     s.creatures[id] = { bond: 1 };
     s.stats.creaturesFound++;
+    bumpWorld(s, 'creaturesFound');
     if (!s.companion) s.companion = id;
   } else {
     was.bond++;
@@ -177,6 +181,7 @@ function settleDive(s, result, now, practice = false) {
     sum.homeBonus = Math.round(result.gathered * mods.homeMult) - result.gathered;
     total += sum.homeBonus;
     s.stats.homecomings++;
+    bumpWorld(s, 'homecomings');
   }
   if (result.gotRelic && h.relic && !h.relicTaken) {
     h.relicTaken = true;
@@ -195,6 +200,7 @@ function settleDive(s, result, now, practice = false) {
     sum.hollowBonus = T.hollowBonus + mods.hollowBonus;
     total += sum.hollowBonus;
     s.stats.hollowsAwakened++;
+    bumpWorld(s, 'hollowsAwakened');
     if (h.dives <= T.swiftDives) {
       sum.sparkRefund = 1;
       s.sparks++;
@@ -209,6 +215,9 @@ function settleDive(s, result, now, practice = false) {
   st.lanternsLit += result.lanternsLitNow;
   st.rekindlesUsed += result.rekindlesUsed;
   st.bumperHits += result.bumperHits;
+  bumpWorld(s, 'dives');
+  bumpWorld(s, 'lanternsLit', result.lanternsLitNow);
+  if (result.cogHits) bumpWorld(s, 'cogHits', result.cogHits);
   if (result.bestChain > st.bestChain) st.bestChain = result.bestChain;
   if (total > st.bestDive) st.bestDive = total;
 
@@ -225,11 +234,29 @@ function buyUpgrade(s, id) {
   if (offer.locked) return { ok: false, reason: 'locked' };
   if (offer.maxed) return { ok: false, reason: 'maxed' };
   if (s.glow < offer.cost) return { ok: false, reason: 'glow', short: offer.cost - s.glow };
+  const lockedBefore = WORLD_ORDER.filter((w) => !isUnlocked(s, w));
   s.glow -= offer.cost;
   s.upgrades[id] = offer.lvl + 1;
   s.stats.upgradesBought++;
+  bumpWorld(s, 'upgradesBought');
   const rankUps = addXp(s, offer.cost * 0.5);
-  return { ok: true, id, level: offer.lvl + 1, cost: offer.cost, rankUps, worldComplete: totalLevels(s) === maxLevels(s) };
+  const opened = lockedBefore.filter((w) => isUnlocked(s, w)).map((w) => WORLDS[w]);
+  return { ok: true, id, level: offer.lvl + 1, cost: offer.cost, rankUps, opened, worldComplete: totalLevels(s) === maxLevels(s) };
+}
+
+/**
+ * Move to another open world. Each world keeps its own unfinished hollow and
+ * hollow count; everything else (Glow, Sparks, rank, friends) comes along.
+ */
+function travel(s, worldId) {
+  if (!WORLDS[worldId] || worldId === s.worldId) return { ok: false, reason: 'same' };
+  if (!isUnlocked(s, worldId)) return { ok: false, reason: 'locked' };
+  s.byWorld[s.worldId] = { hollow: s.hollow, hollowCount: s.hollowCount };
+  const there = s.byWorld[worldId] || { hollow: null, hollowCount: 0 };
+  s.worldId = worldId;
+  s.hollow = there.hollow;
+  s.hollowCount = there.hollowCount;
+  return { ok: true, world: WORLDS[worldId], first: there.hollowCount === 0 };
 }
 
 function setCompanion(s, id) {
@@ -248,4 +275,4 @@ function petCreature(s) {
   s.stats.pets++;
 }
 
-export { addXp, ensureHollow, startDive, drawArtifact, craftArtifact, settleDive, buyUpgrade, setCompanion, setTrail, petCreature };
+export { addXp, ensureHollow, startDive, drawArtifact, craftArtifact, settleDive, buyUpgrade, travel, setCompanion, setTrail, petCreature };
