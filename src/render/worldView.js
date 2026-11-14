@@ -65,6 +65,8 @@ const TEASERS = [
   { x: 24, y: 456, r: 21, kind: 'watch' },
   { x: 342, y: 456, r: 22, kind: 'globe' }
 ];
+// Where the spout opens on the painted teapots: stages 0-2, then stage 3 (box coords).
+const SPOUT_ART = [[292, 339], [281, 351]];
 const CREATURE_SCALE = 1.45; // creatures in the village, relative to their ~28-unit base size
 
 function createWorldView(getState) {
@@ -147,36 +149,127 @@ function createWorldView(getState) {
       if (p >= 1) glow(g, W / 2, geom.oy + 60 * geom.s, 190 * geom.s, '#ffe9a8', painted ? 0.1 : 0.22);
     });
 
-    // the Bureau desk
+    // the Bureau's desk: a wooden tabletop the teapot stands on
     if (band(g, 'mw_desk', W, deskY, H)) {
-      // haze over the horizon so the desk's top edge is not a hard line
-      const haze = g.createLinearGradient(0, deskY - 30 * geom.s, 0, deskY + 44 * geom.s);
-      haze.addColorStop(0, 'rgba(126,196,192,0)');
-      haze.addColorStop(0.42, `rgba(126,196,192,${0.3 + p * 0.1})`);
-      haze.addColorStop(1, 'rgba(126,196,192,0)');
-      g.fillStyle = haze;
-      g.fillRect(0, deskY - 30 * geom.s, W, 74 * geom.s);
       additive(g, () => glow(g, W / 2, deskY + 20 * geom.s, 190 * geom.s, '#ffb86b', 0.1 + p * 0.1));
       return;
     }
-    const desk = g.createLinearGradient(0, deskY, 0, H);
-    desk.addColorStop(0, '#4a2f55');
-    desk.addColorStop(0.12, '#38223f');
-    desk.addColorStop(1, '#150e29');
-    g.fillStyle = desk;
+    drawTable(g, deskY, p);
+  }
+
+  function drawTable(g, deskY, p) {
+    const { W, H, s } = geom;
+    const cx = W / 2;
+    const rng = mulberry32(29);
+    const wood = g.createLinearGradient(0, deskY, 0, H);
+    wood.addColorStop(0, '#b07a5c');
+    wood.addColorStop(0.3, '#93604a');
+    wood.addColorStop(1, '#55313a');
+    g.fillStyle = wood;
     g.fillRect(0, deskY, W, H - deskY);
-    g.fillStyle = 'rgba(255,220,200,.16)';
-    g.fillRect(0, deskY, W, 1.5);
-    g.strokeStyle = 'rgba(0,0,0,.14)';
-    g.lineWidth = 1;
-    for (let i = 0; i < 5; i++) {
+
+    // Planks run away from the viewer, so their seams fan out from a point
+    // above the horizon. xAt gives a seam's x at any depth.
+    const vanish = deskY - 230 * s;
+    const gap = 50 * s;
+    const xAt = (i, y) => cx + i * gap * ((y - vanish) / (deskY - vanish));
+    const first = -Math.ceil(cx / gap) - 1;
+    const last = -first;
+    for (let i = first; i < last; i++) {
+      // each plank a slightly different tone
+      const tone = rng();
+      g.fillStyle = tone < 0.5 ? `rgba(255,222,190,${0.03 + tone * 0.1})` : `rgba(48,16,24,${(tone - 0.5) * 0.16})`;
       g.beginPath();
-      const y = deskY + 18 + i * 26;
-      g.moveTo(0, y);
-      g.bezierCurveTo(W * 0.3, y + 6, W * 0.7, y - 6, W, y + 3);
+      g.moveTo(xAt(i, deskY), deskY);
+      g.lineTo(xAt(i + 1, deskY), deskY);
+      g.lineTo(xAt(i + 1, H), H);
+      g.lineTo(xAt(i, H), H);
+      g.closePath();
+      g.fill();
+      // grain: a few broken lines along the plank
+      g.strokeStyle = 'rgba(64,28,30,.2)';
+      g.lineWidth = 0.8 * s;
+      for (let k = 0; k < 4; k++) {
+        const f = i + 0.14 + rng() * 0.72;
+        let y = deskY + rng() * 30 * s;
+        while (y < H) {
+          const len = (16 + rng() * 60) * s;
+          g.beginPath();
+          g.moveTo(xAt(f, y), y);
+          g.lineTo(xAt(f + (rng() - 0.5) * 0.05, y + len), Math.min(H, y + len));
+          g.stroke();
+          y += len + (8 + rng() * 40) * s;
+        }
+      }
+      // where two boards meet end to end
+      const jy = deskY + (24 + rng() * 150) * s;
+      if (jy < H) {
+        g.strokeStyle = 'rgba(44,18,24,.4)';
+        g.lineWidth = 1.1 * s;
+        g.beginPath();
+        g.moveTo(xAt(i, jy), jy);
+        g.lineTo(xAt(i + 1, jy), jy);
+        g.stroke();
+      }
+      // a knot now and then
+      if (rng() < 0.3) {
+        const ky = deskY + (40 + rng() * 120) * s;
+        const kx = xAt(i + 0.3 + rng() * 0.4, ky);
+        g.strokeStyle = 'rgba(60,26,28,.3)';
+        g.lineWidth = 1 * s;
+        g.beginPath();
+        g.ellipse(kx, ky, 4.5 * s, 2 * s, 0, 0, Math.PI * 2);
+        g.stroke();
+        g.fillStyle = 'rgba(60,26,28,.28)';
+        ellipse(g, kx, ky, 2 * s, 0.9 * s);
+      }
+    }
+    // seams between planks: a dark groove with a thin catch of light beside it
+    for (let i = first; i <= last; i++) {
+      g.strokeStyle = 'rgba(44,18,24,.5)';
+      g.lineWidth = 1.3 * s;
+      g.beginPath();
+      g.moveTo(xAt(i, deskY), deskY);
+      g.lineTo(xAt(i, H), H);
+      g.stroke();
+      g.strokeStyle = 'rgba(255,226,198,.14)';
+      g.lineWidth = 0.8 * s;
+      g.beginPath();
+      g.moveTo(xAt(i, deskY) - 1.3 * s, deskY);
+      g.lineTo(xAt(i, H) - 2.2 * s, H);
       g.stroke();
     }
-    additive(g, () => glow(g, W / 2, deskY + 20 * geom.s, 190 * geom.s, '#ffb86b', 0.2 + p * 0.12));
+
+    // the far edge catches the light; distance cools and softens the wood
+    const far = g.createLinearGradient(0, deskY, 0, deskY + 80 * s);
+    far.addColorStop(0, `rgba(140,200,196,${0.34 - p * 0.08})`);
+    far.addColorStop(1, 'rgba(140,200,196,0)');
+    g.fillStyle = far;
+    g.fillRect(0, deskY, W, 80 * s);
+    g.fillStyle = 'rgba(255,236,214,.5)';
+    g.fillRect(0, deskY, W, 1.6 * s);
+    g.fillStyle = 'rgba(40,16,22,.28)';
+    g.fillRect(0, deskY + 1.6 * s, W, 1.2 * s);
+    // nearer the viewer it falls into shadow, so the buttons sit on something quiet
+    const near = g.createLinearGradient(0, deskY + 60 * s, 0, H);
+    near.addColorStop(0, 'rgba(30,10,24,0)');
+    near.addColorStop(1, 'rgba(30,10,24,.62)');
+    g.fillStyle = near;
+    g.fillRect(0, deskY + 60 * s, W, H - deskY - 60 * s);
+    // soft haze just above the far edge
+    const haze = g.createLinearGradient(0, deskY - 26 * s, 0, deskY);
+    haze.addColorStop(0, 'rgba(126,196,192,0)');
+    haze.addColorStop(1, `rgba(126,196,192,${0.22 + p * 0.08})`);
+    g.fillStyle = haze;
+    g.fillRect(0, deskY - 26 * s, W, 26 * s);
+    // the pot's warm light pooling on the wood
+    additive(g, () => {
+      g.save();
+      g.translate(cx, deskY + 26 * s);
+      g.scale(1, 0.32);
+      glow(g, 0, 0, 210 * s, '#ffb86b', 0.16 + p * 0.22);
+      g.restore();
+    });
   }
 
   function drawTeapot(g, st) {
@@ -733,15 +826,29 @@ function createWorldView(getState) {
     // steam rising from the teapot's opening and spout
     if (Math.random() < dt * (3 + p * 6)) {
       const art = has('mw_teapot_' + upgradeLevel(st, 'teapot'));
-      const spout = !art && Math.random() < 0.25; // the painted pots have their spout elsewhere
       steam.push({
-        x: spout ? 328 : (art ? 184 : 180) + (Math.random() - 0.5) * (art ? 44 : 60),
-        y: spout ? 342 : 336,
-        vx: spout ? 8 : (Math.random() - 0.5) * 6,
+        x: (art ? 184 : 180) + (Math.random() - 0.5) * (art ? 44 : 60),
+        y: 336,
+        vx: (Math.random() - 0.5) * 6,
         vy: -(10 + Math.random() * 12),
         r: 6 + Math.random() * 6,
         life: 1,
         village: false
+      });
+    }
+    // steam curling from the spout, wherever this pot's spout is
+    if (Math.random() < dt * (2.2 + p * 3.2)) {
+      const lv = upgradeLevel(st, 'teapot');
+      const [sx, sy] = !has('mw_teapot_' + lv) ? [328, 342] : lv >= 3 ? SPOUT_ART[1] : SPOUT_ART[0];
+      steam.push({
+        x: sx + (Math.random() - 0.5) * 5,
+        y: sy,
+        vx: 5 + Math.random() * 7,
+        vy: -(12 + Math.random() * 10),
+        r: 3 + Math.random() * 2.5,
+        life: 1,
+        village: false,
+        spout: true
       });
     }
     if (upgradeLevel(st, 'garden') > 0 && Math.random() < dt * 3) {
@@ -853,7 +960,7 @@ function createWorldView(getState) {
     // steam behind the village
     for (const s of steam) {
       if (s.village) continue;
-      ctx.fillStyle = `rgba(255,255,255,${0.1 * s.life + 0.08 * s.life * p})`;
+      ctx.fillStyle = `rgba(255,255,255,${(s.spout ? 0.26 : 0.1) * s.life + 0.08 * s.life * p})`;
       circle(ctx, s.x, s.y, s.r);
     }
     ctx.restore();
