@@ -64,6 +64,21 @@ const path = require('node:path');
     await page.goto('https://icezmaj.github.io/Wonderlost/?smoke=' + Date.now(), { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
     console.log('Public GitHub Pages: title loaded successfully');
+    // Returning-player regression: an existing save must open Home instead of
+    // forcing the first-time tutorial or leaving a non-interactive screen.
+    await page.locator('#b-begin').click();
+    await page.waitForFunction(() => window.__wonderlost.app.screen === 'dive', null, { timeout: 15000 });
+    await page.evaluate(() => {
+      window.__wonderlost.app.state.stats.dives = 1;
+      window.__wonderlost.app.goHome();
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
+    await page.locator('#b-begin').click();
+    await page.waitForFunction(() => window.__wonderlost.app.screen === 'home', null, { timeout: 15000 });
+    await page.screenshot({ path: 'wonderlost-desktop-returning.png' });
+    console.log('Public Pages existing save: returned to Home on desktop successfully');
     if (errors.length) throw new Error('Browser errors:\\n' + errors.join('\\n'));
     console.log('PASS: local title, dive, aim, home, Restore, second dive and public Pages launch.');
   } finally {
