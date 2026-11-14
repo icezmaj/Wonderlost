@@ -9,6 +9,7 @@ import { petCreature } from './progression/actions.js';
 import { refreshDaily } from './progression/objectives.js';
 import { refreshEvent } from './progression/events.js';
 import { createWorldView } from './render/worldView.js';
+import { COMING_SOON } from './config/worlds.js';
 import { glow, additive } from './render/gfx.js';
 import { loadAssets, setSlotDebug, has } from './render/assets.js';
 import { createDiveController } from './game/diveController.js';
@@ -149,6 +150,12 @@ stage.addEventListener('pointerdown', (e) => {
       sfx.pet();
       app.save();
       app.ui.refresh();
+    } else {
+      const next = COMING_SOON[app.world.tapTeaser(x, y)];
+      if (next) {
+        sfx.tap();
+        app.ui.toast(`<b>${next.name}</b> · ${next.object}. This case opens in a later update.`);
+      }
     }
   }
 });

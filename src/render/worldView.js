@@ -60,6 +60,11 @@ const CUP_SPOTS = [[62, 189, '#ffd3dd', '#ff8fa3'], [92, 184, '#d6efff', '#6fa8f
 const BUSH_SPOTS = [[256, 181], [300, 181], [276, 177], [314, 186]];
 const FOLK_SPOTS = [[50, 191], [76, 194], [104, 192], [124, 196], [66, 199], [110, 200]];
 const LAMP_COLORS = ['#ffcf5c', '#ff8fa3', '#7fe3d8'];
+// Cases still waiting on the Bureau desk, behind the teapot (box coords).
+const TEASERS = [
+  { x: 24, y: 456, r: 21, kind: 'watch' },
+  { x: 342, y: 456, r: 22, kind: 'globe' }
+];
 const CREATURE_SCALE = 1.45; // creatures in the village, relative to their ~28-unit base size
 
 function createWorldView(getState) {
@@ -72,6 +77,16 @@ function createWorldView(getState) {
   const fx = new Particles(180);
   const steam = [];
   const hearts = [];
+  // Ambient life, so the sky around the village is never flat or still.
+  const amb = mulberry32(77);
+  const drift = Array.from({ length: 7 }, () => ({ x: -60 + amb() * 480, y: 16 + amb() * 250, w: 70 + amb() * 90, v: 2 + amb() * 4, a: 0.07 + amb() * 0.08 }));
+  const farIsles = [
+    { x: 18, y: 270, k: 0.52, ph: 0 },
+    { x: 334, y: 58, k: 0.46, ph: 2 },
+    { x: 346, y: 318, k: 0.5, ph: 4 },
+    { x: 92, y: 20, k: 0.4, ph: 1 }
+  ];
+  const flies = Array.from({ length: 34 }, () => ({ x: -30 + amb() * 420, y: amb() * 470, v: 3 + amb() * 7, ph: amb() * 6.28, r: 1.6 + amb() * 2.2, c: amb() < 0.7 ? '#ffe08a' : '#a8f0e4' }));
   const critters = {
     nimbit: { x: 126, min: 104, max: 256, y: 292, dir: 1, pause: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
     sprigget: { x: 270, min: 236, max: 334, y: 214, dir: -1, pause: 2, hop: 0, happy: 0, sx: 0, sy: 0 },
@@ -309,6 +324,133 @@ function createWorldView(getState) {
     g.font = '700 5px Nunito, sans-serif';
     g.fillText('MISTLEWICK', 3, 12);
     g.restore();
+  }
+
+  // One soft cloud, drawn once and reused for every drifting cloud.
+  let puffSprite = null;
+  function puff() {
+    if (!puffSprite) {
+      puffSprite = document.createElement('canvas');
+      puffSprite.width = 320;
+      puffSprite.height = 128;
+      const g = puffSprite.getContext('2d');
+      cloud(g, 160, 56, 300, 60, 'rgba(255,255,255,.17)', 'rgba(168,220,214,.1)');
+    }
+    return puffSprite;
+  }
+
+  // Slanting light and far-off islands: they never change, so they are drawn
+  // once into the background layer instead of every frame.
+  function drawFarSky(g, st) {
+    const p = restoration(st);
+    additive(g, () => {
+      for (let i = 0; i < 3; i++) {
+        g.save();
+        g.translate(40 + i * 120, 150);
+        g.rotate(0.36);
+        g.scale(1, 7);
+        glow(g, 0, 0, 34 + i * 4, '#fff0d0', 0.05 + p * 0.03);
+        g.restore();
+      }
+    });
+    for (const f of farIsles) {
+      if (!place(g, 'mw_island', f.x, f.y, { w: 160 * f.k, alpha: 0.55, quiet: true })) {
+        cloud(g, f.x, f.y, 150 * f.k, 34 * f.k, 'rgba(255,255,255,.2)', 'rgba(170,200,230,.14)');
+      }
+      const u = f.k * 1.1;
+      g.fillStyle = 'rgba(246,227,180,.62)';
+      roundRect(g, f.x - 7 * u, f.y - 19 * u, 14 * u, 12 * u, 3 * u);
+      g.fill();
+      g.fillStyle = 'rgba(244,166,180,.7)';
+      g.beginPath();
+      g.moveTo(f.x - 10 * u, f.y - 17 * u);
+      g.quadraticCurveTo(f.x, f.y - 34 * u, f.x + 10 * u, f.y - 17 * u);
+      g.closePath();
+      g.fill();
+    }
+  }
+
+  // The next cases, waiting their turn: dark shapes on the desk behind the pot.
+  function drawTeasers(g) {
+    const body = '#0f3d48';
+    const face = '#1a5662';
+    const dark = '#0a2c35';
+    const rim = 'rgba(196,238,230,.5)';
+    g.lineCap = 'round';
+    for (const tz of TEASERS) {
+      g.save();
+      g.translate(tz.x, tz.y);
+      g.fillStyle = 'rgba(3,23,28,.55)';
+      ellipse(g, 2, 1, tz.r * 1.05, 3.4);
+      if (tz.kind === 'watch') {
+        // a stopped pocket watch, propped up, one minute to midnight
+        g.rotate(-0.16);
+        g.strokeStyle = body;
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(3, -tz.r * 2.05);
+        g.quadraticCurveTo(26, -tz.r * 2.3, 30, -6);
+        g.stroke();
+        g.fillStyle = body;
+        roundRect(g, -3.5, -tz.r * 2.2, 7, 6, 2);
+        g.fill();
+        circle(g, 0, -tz.r, tz.r);
+        g.fillStyle = face;
+        circle(g, 0, -tz.r, tz.r * 0.76);
+        g.strokeStyle = dark;
+        g.lineWidth = 1.6;
+        g.beginPath();
+        g.moveTo(0, -tz.r);
+        g.lineTo(0, -tz.r * 1.58);
+        g.moveTo(0, -tz.r);
+        g.lineTo(-tz.r * 0.2, -tz.r * 1.4);
+        g.stroke();
+        g.strokeStyle = rim;
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.arc(0, -tz.r, tz.r - 0.8, 1.05 * Math.PI, 1.55 * Math.PI);
+        g.stroke();
+      } else {
+        // a forgotten snow globe
+        g.fillStyle = body;
+        g.beginPath();
+        g.moveTo(-tz.r * 0.9, 0);
+        g.lineTo(tz.r * 0.9, 0);
+        g.lineTo(tz.r * 0.7, -tz.r * 0.5);
+        g.lineTo(-tz.r * 0.7, -tz.r * 0.5);
+        g.closePath();
+        g.fill();
+        roundRect(g, -tz.r * 0.98, -tz.r * 0.16, tz.r * 1.96, tz.r * 0.2, 2);
+        g.fill();
+        g.fillStyle = face;
+        circle(g, 0, -tz.r * 1.3, tz.r * 0.98);
+        // a tiny pine and a house, asleep under the glass
+        g.fillStyle = dark;
+        g.beginPath();
+        g.moveTo(-tz.r * 0.55, -tz.r * 0.62);
+        g.lineTo(-tz.r * 0.25, -tz.r * 1.6);
+        g.lineTo(tz.r * 0.05, -tz.r * 0.62);
+        g.closePath();
+        g.fill();
+        roundRect(g, tz.r * 0.12, -tz.r * 1.02, tz.r * 0.46, tz.r * 0.42, 1.5);
+        g.fill();
+        g.beginPath();
+        g.moveTo(tz.r * 0.04, -tz.r * 1.0);
+        g.lineTo(tz.r * 0.35, -tz.r * 1.3);
+        g.lineTo(tz.r * 0.66, -tz.r * 1.0);
+        g.closePath();
+        g.fill();
+        ellipse(g, 0, -tz.r * 0.6, tz.r * 0.8, tz.r * 0.16);
+        g.fillStyle = 'rgba(196,238,230,.1)';
+        circle(g, -tz.r * 0.3, -tz.r * 1.6, tz.r * 0.42);
+        g.strokeStyle = rim;
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.arc(0, -tz.r * 1.3, tz.r * 0.98 - 0.8, 1.05 * Math.PI, 1.55 * Math.PI);
+        g.stroke();
+      }
+      g.restore();
+    }
   }
 
   function island(g, id, alive, p) {
@@ -571,6 +713,8 @@ function createWorldView(getState) {
     drawBackdrop(g, st);
     g.translate(geom.ox, geom.oy);
     g.scale(geom.s, geom.s);
+    drawFarSky(g, st);
+    drawTeasers(g);
     drawTeapot(g, st);
     [village, g] = mk();
     g.translate(geom.ox, geom.oy);
@@ -620,6 +764,16 @@ function createWorldView(getState) {
       if (h.life <= 0) hearts.splice(i, 1);
     }
 
+    for (const c of drift) {
+      c.x += c.v * dt;
+      if (c.x - c.w / 2 > 420) c.x = -60 - c.w / 2;
+    }
+    for (const f of flies) {
+      f.y -= f.v * dt;
+      f.x += Math.sin(t * 0.7 + f.ph) * 4 * dt;
+      if (f.y < -12) f.y = 474;
+    }
+
     // creatures potter about
     for (const id of ['nimbit', 'sprigget']) {
       const c = critters[id];
@@ -662,6 +816,19 @@ function createWorldView(getState) {
     ctx.save();
     ctx.translate(geom.ox, geom.oy);
     ctx.scale(geom.s, geom.s);
+
+    // --- the sky: drifting cloud, and lit windows on the far-off islands ---
+    // (the light shafts and the islands themselves are baked into the background)
+    for (const c of drift) {
+      ctx.globalAlpha = c.a * 6;
+      ctx.drawImage(puff(), c.x - c.w / 2, c.y - c.w * 0.2, c.w, c.w * 0.4);
+    }
+    ctx.globalAlpha = 1;
+    if (p > 0.15) {
+      additive(ctx, () => {
+        for (const f of farIsles) glow(ctx, f.x, f.y - 13 * f.k, 10 * f.k + 3, '#ffd98a', 0.35 + p * 0.35 + Math.sin(t * 1.4 + f.ph) * 0.12);
+      });
+    }
 
     // light inside the teapot
     const potArt = has('mw_teapot_' + L('teapot'));
@@ -775,6 +942,22 @@ function createWorldView(getState) {
     ctx.globalAlpha = 1;
     ctx.restore();
 
+    // --- drifting lights in front of everything; more of them as the world wakes ---
+    ctx.save();
+    ctx.translate(geom.ox, geom.oy);
+    ctx.scale(geom.s, geom.s);
+    additive(ctx, () => {
+      const n = Math.min(flies.length, 10 + Math.round(p * 24));
+      for (let i = 0; i < n; i++) {
+        const f = flies[i];
+        const tw = 0.5 + 0.5 * Math.sin(t * 2 + f.ph);
+        glow(ctx, f.x, f.y, f.r * (2.2 + tw), f.c, 0.25 + tw * 0.5);
+      }
+      // a slow twinkle on the cases still waiting
+      TEASERS.forEach((tz, i) => glow(ctx, tz.x - 4, tz.y - tz.r * 1.5, 7, '#c4eee6', Math.max(0, Math.sin(t * 1.1 + i * 2.4)) * 0.5));
+    });
+    ctx.restore();
+
     band(ctx, 'mw_fore_mist', W, geom.oy + 436 * geom.s);
     fx.draw(ctx);
   }
@@ -796,6 +979,15 @@ function createWorldView(getState) {
     return null;
   }
 
+  /** Tap test for the cases waiting on the desk. Returns 0, 1 or -1. */
+  function tapTeaser(x, y) {
+    for (let i = 0; i < TEASERS.length; i++) {
+      const [sx, sy] = toScreen(TEASERS[i].x, TEASERS[i].y - TEASERS[i].r);
+      if (Math.hypot(x - sx, y - sy) < TEASERS[i].r * geom.s + 12) return i;
+    }
+    return -1;
+  }
+
   /** Sparkle burst where an upgrade was just built. */
   function celebrate(id) {
     const a = ANCHOR[id];
@@ -804,7 +996,7 @@ function createWorldView(getState) {
     fx.emit(x, y, { n: 38, color: ['#ffcf5c', '#fff3c4', '#ff8fa3', '#7fe3d8'], speed: [30, 190], life: [0.5, 1.3], size: [2, 5], gravity: 60, drag: 1.8 });
   }
 
-  return { update, draw, tap, celebrate, anchorScreen: (id) => toScreen(ANCHOR[id][0], ANCHOR[id][1]), invalidate: () => (key = '') };
+  return { update, draw, tap, tapTeaser, celebrate, anchorScreen: (id) => toScreen(ANCHOR[id][0], ANCHOR[id][1]), invalidate: () => (key = '') };
 }
 
 export { createWorldView };
