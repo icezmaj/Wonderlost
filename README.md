@@ -39,3 +39,20 @@ In the game, **Settings → Art slots** outlines and labels every slot.
 Images are inlined into the single HTML file, so prefer WebP and watch the
 build size it prints. `node tools/build.js --link` references the files by
 path instead of inlining them.
+
+## Play online with GitHub Pages
+
+The game has a self-contained Pages build at `docs/index.html`.
+
+**One-time GitHub setup:** Go to **Settings → Pages** in this repository, select
+**Deploy from a branch**, choose branch **main** and folder **/docs**, then
+click **Save**. The site will appear at:
+
+https://icezmaj.github.io/Wonderlost/
+
+Running `node tools/build.js` generates both `dist/wonderlost.html` and
+`docs/index.html` (including art assets), so commit both generated files
+when you update the game to keep the live website current. Use the normal
+build rather than `--link`; standalone asset URLs aren't suitable for this
+self-contained Pages deployment. GitHub Pages typically takes a few minutes
+to publish after changes are pushed.

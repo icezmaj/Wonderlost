@@ -79,5 +79,15 @@ const html = fs
 
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
 fs.writeFileSync(outFile, html);
+
+// Keep the GitHub Pages version in sync with the playable build.
+// Pages is published from main /docs; the HTML is self-contained with
+// embedded assets. Linked builds cannot be copied to Pages safely.
+if (!args.includes('--out') && !link) {
+  const pagesFile = path.join(root, 'docs', 'index.html');
+  fs.mkdirSync(path.dirname(pagesFile), { recursive: true });
+  fs.writeFileSync(pagesFile, html);
+  console.log('docs/index.html: GitHub Pages build synchronized');
+}
 const names = Object.keys(index);
 console.log(`${path.relative(root, outFile)}: ${order.length} modules, ${names.length} image(s)${link ? ' linked' : ' inlined'}, ${(html.length / 1024).toFixed(0)} KB`);
