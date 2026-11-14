@@ -816,7 +816,7 @@ function newState(now) {
     event: { cycle: -1, points: 0, claimed: [] },
 
     flags: {}, // onboarding beats already shown
-    settings: { sfx: true, music: true, haptics: true, reducedMotion: false, aimGuide: true }
+    settings: { sfx: true, music: true, haptics: true, reducedMotion: false, aimGuide: true, artSlots: false }
   };
 }
 
@@ -2225,6 +2225,270 @@ class Popups {
 return { glowSprite, glow, additive, ellipse, circle, roundRect, cloud, star4, Particles, Popups };
 })();
 
+// ---- src/config/assetIndex.js ----
+__m['src/config/assetIndex.js'] = (function () {
+const ASSET_INDEX = {};
+
+return { ASSET_INDEX };
+})();
+
+// ---- src/config/slots.js ----
+__m['src/config/slots.js'] = (function () {
+// Art slots: every place a finished image can replace code-drawn art.
+//
+// A slot is filled by putting a file with the slot's name in assets/
+// (assets/lantern_on.png fills "lantern_on") and running tools/build.js.
+// An empty slot falls back to the original code-drawn art, so images can
+// arrive one at a time.
+//
+// Fields
+//   w, h    size of the visible object in game units (not of the image file:
+//           the file also carries the margin below)
+//   x, y    fixed position, for slots that never move. World slots use the
+//           360 x 480 diorama box; `screen` slots use the screen.
+//   anchor  'ground': (x, y) is where the object touches the ground
+//           'center': (x, y) is the middle of the object
+//   stages  the slot has files _0 .. _(stages-1), one per restoration level
+//   glow    an optional additive "<name>_glow" halo layer exists
+//   fit     'cover' fills the whole screen; 'band' spans the screen width
+//   px      export width in pixels when it should differ from 4 x the width
+//
+// Image files keep MARGIN empty space on every side (docs/ART_GUIDE.md s.7),
+// so soft edges and contact shadows are never cut off. Glow files cover twice
+// the width and height of their parent image, centred on the same point.
+
+const MARGIN = 0.12;
+
+const SLOTS = {
+  // ---- home screen: Mistlewick ----
+  mw_backdrop: { group: 'world', fit: 'cover', w: 360, h: 640, note: 'Sky only. Opaque.' },
+  mw_desk: { group: 'world', fit: 'band', w: 360, h: 200, note: 'The surface the teapot stands on. Top edge is the horizon line.' },
+  mw_moon: { group: 'world', w: 40, h: 40, anchor: 'center', note: 'Porcelain moon, shown once the artifact set is complete.' },
+  mw_teapot: { group: 'world', stages: 4, x: 193, y: 468, w: 296, h: 144, anchor: 'ground', note: 'Whole teapot seen from outside, lid off. The village rises from its opening.' },
+  mw_island: { group: 'world', w: 160, h: 40, anchor: 'center', note: 'One cloud island, reused for all four.' },
+  mw_hearth: { group: 'world', stages: 4, glow: true, x: 180, y: 272, w: 64, h: 80, anchor: 'ground' },
+  mw_cottages: { group: 'world', stages: 4, glow: true, x: 88, y: 196, w: 110, h: 70, anchor: 'ground' },
+  mw_lanterns: { group: 'world', stages: 4, glow: true, x: 180, y: 171, w: 240, h: 160, anchor: 'center', note: 'All lantern strings as one overlay across the islands.' },
+  mw_belltower: { group: 'world', stages: 4, glow: true, x: 180, y: 106, w: 60, h: 96, anchor: 'ground' },
+  mw_garden: { group: 'world', stages: 4, x: 288, y: 192, w: 100, h: 50, anchor: 'ground' },
+  mw_fore_mist: { group: 'world', fit: 'band', w: 360, h: 90, note: 'Soft mist band drawn in front of the teapot foot.' },
+
+  // ---- creatures (three poses and a blink frame each) ----
+  nimbit: { group: 'creature', poses: true, w: 28, h: 28, anchor: 'center', px: 384 },
+  sprigget: { group: 'creature', poses: true, w: 28, h: 28, anchor: 'center', px: 384 },
+  whistlewing: { group: 'creature', poses: true, w: 28, h: 28, anchor: 'center', px: 384 },
+
+  // ---- artifacts ----
+  art_spoon: { group: 'artifact', w: 30, h: 30, anchor: 'center', px: 256 },
+  art_sugarstar: { group: 'artifact', w: 30, h: 30, anchor: 'center', px: 256 },
+  art_spool: { group: 'artifact', w: 30, h: 30, anchor: 'center', px: 256 },
+  art_bell: { group: 'artifact', w: 30, h: 30, anchor: 'center', px: 256 },
+  art_compass: { group: 'artifact', w: 30, h: 30, anchor: 'center', px: 256 },
+  art_whistle: { group: 'artifact', w: 30, h: 30, anchor: 'center', px: 256 },
+
+  // ---- dive screen (positions come from the level) ----
+  dive_backdrop: { group: 'dive', fit: 'cover', w: 360, h: 640, note: 'Inside a hollow. Opaque.' },
+  dive_spout: { group: 'dive', w: 64, h: 80, anchor: 'center', note: 'The spout the Spark drops from, at the top of the field.' },
+  spark: { group: 'dive', w: 20, h: 20, anchor: 'center', note: 'Its glow and trail are drawn in code so trail colours still apply.' },
+  mote: { group: 'dive', w: 8, h: 8, anchor: 'center' },
+  lantern_off: { group: 'dive', w: 22, h: 30, anchor: 'center' },
+  lantern_on: { group: 'dive', glow: true, w: 22, h: 30, anchor: 'center' },
+  bloom_charged: { group: 'dive', w: 40, h: 40, anchor: 'center' },
+  bloom_spent: { group: 'dive', w: 40, h: 40, anchor: 'center' },
+  ledge: { group: 'dive', w: 72, h: 22, anchor: 'center', note: 'Drawn level; the game tilts it.' },
+  roof: { group: 'dive', w: 62, h: 22, anchor: 'center' },
+  relic_closed: { group: 'dive', w: 26, h: 22, anchor: 'center' },
+  geyser_vent: { group: 'dive', w: 48, h: 30, anchor: 'center', note: 'Steam is drawn in code.' },
+  hearth_dive: { group: 'dive', glow: true, w: 90, h: 36, anchor: 'center', note: 'Stretched to the Hearth\'s current width.' },
+  bubble: { group: 'dive', w: 38, h: 38, anchor: 'center', note: 'Mostly transparent; the sleeping creature shows through.' }
+};
+
+const POSES = ['idle', 'asleep', 'happy', 'blink'];
+
+/** Every file name the game will accept, mapped to its slot definition. */
+function slotFiles() {
+  const files = {};
+  for (const [base, def] of Object.entries(SLOTS)) {
+    const names = def.stages
+      ? Array.from({ length: def.stages }, (_, i) => `${base}_${i}`)
+      : def.poses
+        ? POSES.map((p) => `${base}_${p}`)
+        : [base];
+    for (const name of names) {
+      files[name] = def;
+      // stage 0 is the unlit, asleep state, so it has no glow layer
+      if (def.glow && !name.endsWith('_0')) files[name + '_glow'] = def;
+    }
+  }
+  return files;
+}
+
+return { MARGIN, SLOTS, POSES, slotFiles };
+})();
+
+// ---- src/render/assets.js ----
+__m['src/render/assets.js'] = (function () {
+// Image slots. Loads whatever images the build found, and draws them into the
+// slots defined in src/config/slots.js. Every draw call returns false when its
+// image is missing, so callers fall back to code-drawn art:
+//
+//   if (!place(g, 'lantern_on', x, y)) drawLanternByHand(g, x, y);
+
+const { ASSET_INDEX } = __m['src/config/assetIndex.js'];
+const { MARGIN, slotFiles } = __m['src/config/slots.js'];
+
+const FILES = slotFiles();
+const images = new Map();
+const tints = new Map();
+let version = 0; // bumps whenever what is drawn could change; views use it to drop caches
+let debug = false;
+
+function loadAssets() {
+  if (typeof Image === 'undefined') return;
+  for (const [name, url] of Object.entries(ASSET_INDEX)) {
+    if (!FILES[name]) {
+      console.warn(`[art] "${name}" does not match any slot and was ignored`);
+      continue;
+    }
+    const img = new Image();
+    img.onload = () => {
+      images.set(name, img);
+      version++;
+    };
+    img.onerror = () => console.warn(`[art] could not load "${name}"`);
+    img.src = url;
+  }
+}
+
+const has = (name) => images.has(name);
+const assetVersion = () => version;
+const slotDef = (name) => FILES[name];
+
+function setSlotDebug(on) {
+  if (debug === !!on) return;
+  debug = !!on;
+  version++;
+}
+
+function outline(ctx, name, x, y, w, h, filled) {
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = filled ? '#7be0a0' : '#ff8fa3';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 2]);
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
+  ctx.font = '700 6px Nunito, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  const tw = ctx.measureText(name).width;
+  ctx.fillStyle = 'rgba(13,10,38,.8)';
+  ctx.fillRect(x, y - 8, tw + 4, 8);
+  ctx.fillStyle = filled ? '#7be0a0' : '#ff8fa3';
+  ctx.fillText(name, x + 2, y - 0.5);
+  ctx.restore();
+}
+
+/**
+ * Draw the image for `name` with its object at (x, y).
+ * opts: w, h (override the slot's size), anchor, alpha, rot, flip, scale,
+ *       silhouette (a colour: draw the shape filled with it), glow (draw the
+ *       "<name>_glow" layer additively instead), quiet (no debug outline)
+ * Returns true when an image was drawn.
+ */
+function place(ctx, name, x, y, opts = {}) {
+  const def = FILES[name];
+  if (!def) return false;
+  const file = opts.glow ? name + '_glow' : name;
+  const img = images.get(file);
+  const sc = opts.scale || 1;
+  const w = (opts.w || def.w) * sc;
+  const h = (opts.h || def.h) * sc;
+  const ground = (opts.anchor || def.anchor) === 'ground';
+  const left = x - w / 2;
+  const top = ground ? y - h : y - h / 2;
+
+  if (img) {
+    // The file is the object plus MARGIN on each side. A glow file covers
+    // twice its parent image, centred on the same point.
+    const iw = w / (1 - MARGIN * 2);
+    const ih = opts.h ? h / (1 - MARGIN * 2) : iw * (img.naturalHeight / img.naturalWidth);
+    const m = opts.glow ? 2 : 1;
+    const src = opts.silhouette ? tinted(file, img, opts.silhouette) : img;
+    ctx.save();
+    ctx.translate(x, ground ? y - ih * (0.5 - MARGIN) : y);
+    if (opts.rot) ctx.rotate(opts.rot);
+    if (opts.flip) ctx.scale(-1, 1);
+    if (opts.alpha !== undefined) ctx.globalAlpha = Math.max(0, Math.min(1, opts.alpha));
+    if (opts.glow) ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(src, (-iw * m) / 2, (-ih * m) / 2, iw * m, ih * m);
+    ctx.restore();
+  }
+  if (debug && !opts.quiet && !opts.glow) {
+    if (opts.rot) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(opts.rot);
+      outline(ctx, name, -w / 2, -h / 2, w, h, !!img);
+      ctx.restore();
+    } else outline(ctx, name, left, top, w, h, !!img);
+  }
+  return !!img;
+}
+
+/** Draw a slot that has a fixed position (x, y in its definition). */
+function slot(ctx, name, opts) {
+  const def = FILES[name];
+  return def ? place(ctx, name, def.x, def.y, opts) : false;
+}
+
+/** Draw a full-screen image, scaled to cover W x H. */
+function cover(ctx, name, W, H) {
+  const img = images.get(name);
+  if (!img) return false;
+  const s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+  const w = img.naturalWidth * s;
+  const h = img.naturalHeight * s;
+  ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+  return true;
+}
+
+/**
+ * Draw an image across the full screen width with its top edge at `top`.
+ * With `toBottom` it is stretched down to `toBottom` if it would fall short.
+ */
+function band(ctx, name, W, top, toBottom) {
+  const img = images.get(name);
+  if (img) {
+    let h = W * (img.naturalHeight / img.naturalWidth);
+    if (toBottom !== undefined && top + h < toBottom) h = toBottom - top;
+    ctx.drawImage(img, 0, top, W, h);
+  }
+  if (debug) outline(ctx, name, 1, top, W - 2, FILES[name].h * (W / 360), !!img);
+  return !!img;
+}
+
+function tinted(file, img, color) {
+  const key = file + color;
+  let c = tints.get(key);
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    g.globalCompositeOperation = 'source-in';
+    g.fillStyle = color;
+    g.fillRect(0, 0, c.width, c.height);
+    tints.set(key, c);
+  }
+  return c;
+}
+
+return { loadAssets, has, place, slot, cover, band, assetVersion, setSlotDebug, slotDef };
+})();
+
 // ---- src/render/creatures.js ----
 __m['src/render/creatures.js'] = (function () {
 // Original procedural art for creatures and artifacts. Everything is drawn
@@ -2232,16 +2496,21 @@ __m['src/render/creatures.js'] = (function () {
 // the dive field, reward cards and the Finds sheet at any size.
 
 const { circle, ellipse, roundRect, star4 } = __m['src/render/gfx.js'];
+const { has, place } = __m['src/render/assets.js'];
 
 /**
  * Draw a creature centred on (x, y). `s` scales a ~24px-tall figure.
  * opts: { asleep, happy, flip }
  */
 function drawCreature(ctx, id, x, y, s, t, opts = {}) {
+  const blink = opts.asleep ? 0.12 : Math.sin(t * 0.9 + x) > 0.985 ? 0.15 : 1;
+  // Finished art, if this creature has any: pick the pose, falling back to idle.
+  const pose = opts.asleep ? 'asleep' : blink < 0.5 ? 'blink' : opts.happy ? 'happy' : 'idle';
+  const file = has(`${id}_${pose}`) ? `${id}_${pose}` : `${id}_idle`;
+  if (place(ctx, file, x, y, { scale: s, flip: opts.flip })) return;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(opts.flip ? -s : s, s);
-  const blink = opts.asleep ? 0.12 : Math.sin(t * 0.9 + x) > 0.985 ? 0.15 : 1;
   if (id === 'nimbit') nimbit(ctx, t, blink, opts);
   else if (id === 'sprigget') sprigget(ctx, t, blink, opts);
   else if (id === 'whistlewing') whistlewing(ctx, t, blink, opts);
@@ -2404,6 +2673,7 @@ function drawZzz(ctx, x, y, t) {
  * `silhouette` draws the undiscovered version.
  */
 function drawArtifact(ctx, id, x, y, s, silhouette = false) {
+  if (place(ctx, 'art_' + id, x, y, { scale: s, silhouette: silhouette ? '#3b3478' : null })) return;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);
@@ -2541,6 +2811,7 @@ const { mixHex, clamp } = __m['src/core/util.js'];
 const { mulberry32 } = __m['src/core/rng.js'];
 const { glow, additive, ellipse, circle, roundRect, cloud, star4, Particles } = __m['src/render/gfx.js'];
 const { drawCreature } = __m['src/render/creatures.js'];
+const { has, place, slot, cover, band, assetVersion } = __m['src/render/assets.js'];
 const { upgradeLevel, restoration } = __m['src/progression/state.js'];
 
 const BOX = { w: 360, h: 480 }; // the diorama is authored in this box, then fitted to the screen
@@ -2606,21 +2877,23 @@ function createWorldView(getState) {
     sky.addColorStop(0, mixHex('#0a081f', '#17235f', p));
     sky.addColorStop(0.5, mixHex('#191343', '#4d3f99', p));
     sky.addColorStop(1, mixHex('#30205a', '#f09aa8', p));
-    g.fillStyle = sky;
-    g.fillRect(0, 0, W, H);
+    if (!cover(g, 'mw_backdrop', W, H)) {
+      g.fillStyle = sky;
+      g.fillRect(0, 0, W, H);
 
-    // stars (fewer as dawn arrives)
-    const rng = mulberry32(11);
-    for (let i = 0; i < 70; i++) {
-      const x = rng() * W;
-      const y = rng() * deskY * 0.85;
-      const r = 0.4 + rng() * 1.1;
-      g.fillStyle = `rgba(255,255,255,${(0.25 + rng() * 0.6) * (1 - p * 0.55)})`;
-      circle(g, x, y, r);
+      // stars (fewer as dawn arrives)
+      const rng = mulberry32(11);
+      for (let i = 0; i < 70; i++) {
+        const x = rng() * W;
+        const y = rng() * deskY * 0.85;
+        const r = 0.4 + rng() * 1.1;
+        g.fillStyle = `rgba(255,255,255,${(0.25 + rng() * 0.6) * (1 - p * 0.55)})`;
+        circle(g, x, y, r);
+      }
     }
     // porcelain moon: reward for completing the artifact set
-    if (st.setRewarded) {
-      const my = geom.oy + 70 * geom.s;
+    const my = geom.oy + 70 * geom.s;
+    if (st.setRewarded && !place(g, 'mw_moon', 56, my)) {
       additive(g, () => glow(g, 56, my, 60, '#bcd0ff', 0.5));
       g.fillStyle = '#f4f7ff';
       circle(g, 56, my, 19);
@@ -2634,6 +2907,10 @@ function createWorldView(getState) {
     });
 
     // the Bureau desk
+    if (band(g, 'mw_desk', W, deskY, H)) {
+      additive(g, () => glow(g, W / 2, deskY + 20 * geom.s, 190 * geom.s, '#ffb86b', 0.2 + p * 0.12));
+      return;
+    }
     const desk = g.createLinearGradient(0, deskY, 0, H);
     desk.addColorStop(0, '#4a2f55');
     desk.addColorStop(0.12, '#38223f');
@@ -2656,6 +2933,7 @@ function createWorldView(getState) {
 
   function drawTeapot(g, st) {
     const lv = upgradeLevel(st, 'teapot');
+    if (slot(g, 'mw_teapot_' + lv)) return;
     const q = Math.min(1, (lv / 3) * 0.75 + restoration(st) * 0.25);
     const light = mixHex('#a9acc6', '#ffffff', q);
     const base = mixHex('#8386a6', '#eef2ff', q);
@@ -2791,6 +3069,7 @@ function createWorldView(getState) {
   }
 
   function island(g, x, y, w, h, alive, p) {
+    if (place(g, 'mw_island', x, y, { w, alpha: alive ? 1 : 0.3 })) return;
     if (alive) cloud(g, x, y, w, h, mixHex('#b9b6e2', '#ffffff', 0.45 + p * 0.55), mixHex('#7772b3', '#c9b8ee', 0.4 + p * 0.6));
     else cloud(g, x, y, w, h, 'rgba(150,146,208,.22)', 'rgba(110,106,170,.14)');
   }
@@ -2855,9 +3134,10 @@ function createWorldView(getState) {
       [[202, 102], [292, 170]]
     ];
     const nStrings = [0, 1, 2, 4][L('lanterns')];
+    const lanternArt = slot(g, 'mw_lanterns_' + L('lanterns'));
     strings.forEach(([a, b], si) => {
       const on = si < nStrings;
-      if (!on && si > 1) return;
+      if (lanternArt || (!on && si > 1)) return;
       g.save();
       if (!on) g.globalAlpha = 0.16;
       const mx = (a[0] + b[0]) / 2;
@@ -2883,7 +3163,7 @@ function createWorldView(getState) {
 
     // --- Bell Tower ---
     const bell = L('belltower');
-    ghost(g, bell > 0, (gh) => {
+    if (!slot(g, 'mw_belltower_' + bell)) ghost(g, bell > 0, (gh) => {
       const wall = gh ? '#9d98d6' : '#efe6ff';
       g.fillStyle = gh ? '#9d98d6' : '#c9bdf0';
       g.beginPath();
@@ -2944,11 +3224,11 @@ function createWorldView(getState) {
 
     // --- Cloud Cottages (teacup houses) ---
     const cots = L('cottages');
-    CUP_SPOTS.forEach(([x, y, col, trim], i) => cup(g, x, y, col, trim, cots >= 3 || (cots >= 2 && i === 0), i >= cots));
+    if (!slot(g, 'mw_cottages_' + cots)) CUP_SPOTS.forEach(([x, y, col, trim], i) => cup(g, x, y, col, trim, cots >= 3 || (cots >= 2 && i === 0), i >= cots));
 
     // --- Steam Garden ---
     const gar = L('garden');
-    ghost(g, gar > 0, (gh) => {
+    if (!slot(g, 'mw_garden_' + gar)) ghost(g, gar > 0, (gh) => {
       const n = gh ? 2 : gar + 1;
       for (let i = 0; i < n; i++) {
         const [x, y] = BUSH_SPOTS[i];
@@ -2986,6 +3266,7 @@ function createWorldView(getState) {
 
     // --- Hearth Well ---
     const hearth = L('hearth');
+    if (slot(g, 'mw_hearth_' + hearth)) return;
     g.fillStyle = hearth ? '#8e86bd' : '#57527f';
     ellipse(g, 180, 265, 27, 8);
     g.fillStyle = hearth ? '#cfc8ee' : '#6b6596';
@@ -3107,7 +3388,7 @@ function createWorldView(getState) {
 
   function draw(ctx, W, H, px) {
     const st = getState();
-    const k = [W, H, px, st.setRewarded, ...Object.keys(ANCHOR).map((id) => upgradeLevel(st, id))].join(',');
+    const k = [W, H, px, assetVersion(), st.setRewarded, ...Object.keys(ANCHOR).map((id) => upgradeLevel(st, id))].join(',');
     if (k !== key) {
       fit(W, H);
       rebuild(st, px);
@@ -3127,7 +3408,7 @@ function createWorldView(getState) {
     additive(ctx, () => {
       glow(ctx, 180, 340, 46 + Math.sin(t * 2) * 3, '#ffb347', 0.25 + L('hearth') * 0.12 + p * 0.25);
       // gold seams shimmer
-      const tp = L('teapot');
+      const tp = has('mw_teapot_' + L('teapot')) ? 0 : L('teapot');
       for (let i = 0; i < tp; i++) {
         const pts = CRACKS[i];
         const u = (t * 0.35 + i * 0.3) % 1;
@@ -3153,21 +3434,31 @@ function createWorldView(getState) {
     ctx.translate(geom.ox, geom.oy + bob * geom.s);
     ctx.scale(geom.s, geom.s);
 
+    // Where finished art fills a slot, its own glow layer replaces the
+    // hand-placed lights (which sit on the code-drawn windows and lamps).
+    const art = (id) => has(`mw_${id}_${L(id)}`);
+    const halo = (id, i) => slot(ctx, `mw_${id}_${L(id)}`, { glow: true, alpha: 0.82 + Math.sin(t * 2.6 + i * 1.7) * 0.18 });
     additive(ctx, () => {
       const hearth = L('hearth');
-      if (hearth) glow(ctx, 180, 244, 20 + hearth * 9 + Math.sin(t * 5) * 2, '#ffb347', 0.75);
+      if (art('hearth')) halo('hearth', 0);
+      else if (hearth) glow(ctx, 180, 244, 20 + hearth * 9 + Math.sin(t * 5) * 2, '#ffb347', 0.75);
       else glow(ctx, 180, 246, 14, '#ffb347', 0.12 + Math.sin(t * 1.5) * 0.05);
       for (let i = 0; i < lamps.length; i++) {
         const [x, y, col] = lamps[i];
         glow(ctx, x, y, 11 + Math.sin(t * 3 + i * 1.7) * 1.6, col, 0.8);
       }
+      if (art('lanterns')) halo('lanterns', 1);
       const cots = L('cottages');
-      CUP_SPOTS.forEach(([x, y], i) => {
+      if (art('cottages')) halo('cottages', 2);
+      else CUP_SPOTS.forEach(([x, y], i) => {
         if (cots >= 3 || (cots >= 2 && i === 0)) glow(ctx, x + 5.5, y - 11, 9, '#ffe08a', 0.7);
       });
       const bell = L('belltower');
-      if (bell >= 2) glow(ctx, 180, 71, 12 + Math.sin(t * 2.2) * 2, '#ffcf5c', 0.55);
-      if (bell >= 3) glow(ctx, 180, 90, 12, '#ffe08a', 0.8);
+      if (art('belltower')) halo('belltower', 3);
+      else {
+        if (bell >= 2) glow(ctx, 180, 71, 12 + Math.sin(t * 2.2) * 2, '#ffcf5c', 0.55);
+        if (bell >= 3) glow(ctx, 180, 90, 12, '#ffe08a', 0.8);
+      }
     });
 
     for (const s of steam) {
@@ -3217,6 +3508,7 @@ function createWorldView(getState) {
     ctx.globalAlpha = 1;
     ctx.restore();
 
+    band(ctx, 'mw_fore_mist', W, geom.oy + 436 * geom.s);
     fx.draw(ctx);
   }
 
@@ -3857,6 +4149,7 @@ __m['src/render/diveView.js'] = (function () {
 
 const { glow, additive, ellipse, circle, roundRect, cloud, star4, Particles, Popups } = __m['src/render/gfx.js'];
 const { drawCreature, drawZzz } = __m['src/render/creatures.js'];
+const { has, place, cover, assetVersion } = __m['src/render/assets.js'];
 const { FIELD } = __m['src/sim/diveSim.js'];
 const { TUNING: T } = __m['src/config/tuning.js'];
 const { mulberry32 } = __m['src/core/rng.js'];
@@ -3913,6 +4206,7 @@ function createDiveView() {
     bg.height = Math.round(H * px);
     const g = bg.getContext('2d');
     g.scale(px, px);
+    if (cover(g, 'dive_backdrop', W, H)) return;
     const sky = g.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, '#1a1550');
     sky.addColorStop(0.45, '#3a2c86');
@@ -4072,6 +4366,17 @@ function createDiveView() {
 
   function drawLedge(g, s) {
     g.lineCap = 'round';
+    if (s.kind === 'roof' && has('roof')) {
+      // a roof is two segments meeting at a peak: draw the image once, on the rising half
+      if (s.y2 < s.y1) place(g, 'roof', s.x2, s.y2 + 6.5);
+      return;
+    }
+    if (s.kind !== 'roof') {
+      const flip = s.x2 < s.x1; // keep the image upright whichever way the segment was authored
+      const dx = flip ? s.x1 - s.x2 : s.x2 - s.x1;
+      const dy = flip ? s.y1 - s.y2 : s.y2 - s.y1;
+      if (place(g, 'ledge', (s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2, { w: Math.hypot(dx, dy) + 12, rot: Math.atan2(dy, dx) })) return;
+    }
     if (s.kind === 'roof') {
       g.strokeStyle = '#2f3fa8';
       g.lineWidth = 10;
@@ -4110,17 +4415,19 @@ function createDiveView() {
     // the Hearth: the bowl every Spark is trying to come home to
     const h = lvl.hearth;
     const half = sim.hearthW / 2;
-    g.fillStyle = '#6d63a6';
-    g.beginPath();
-    g.moveTo(h.x - half - 6, h.y - 4);
-    g.quadraticCurveTo(h.x, h.y + 52, h.x + half + 6, h.y - 4);
-    g.closePath();
-    g.fill();
-    g.fillStyle = '#2a1d55';
-    ellipse(g, h.x, h.y - 2, half - 2, 6);
-    g.fillStyle = '#e6e0fb';
-    circle(g, h.x - half, h.y - 2, 5);
-    circle(g, h.x + half, h.y - 2, 5);
+    if (!place(g, 'hearth_dive', h.x, h.y + 8, { w: sim.hearthW + 12, h: 36 })) {
+      g.fillStyle = '#6d63a6';
+      g.beginPath();
+      g.moveTo(h.x - half - 6, h.y - 4);
+      g.quadraticCurveTo(h.x, h.y + 52, h.x + half + 6, h.y - 4);
+      g.closePath();
+      g.fill();
+      g.fillStyle = '#2a1d55';
+      ellipse(g, h.x, h.y - 2, half - 2, 6);
+      g.fillStyle = '#e6e0fb';
+      circle(g, h.x - half, h.y - 2, 5);
+      circle(g, h.x + half, h.y - 2, 5);
+    }
 
     for (const e of sim.ents) {
       if (!e.alive) continue;
@@ -4128,19 +4435,23 @@ function createDiveView() {
       if (e.kind === 'bumper') {
         const charged = e.hits < T.bumperCharges;
         const sc = 1 + pulse * 0.28;
-        g.fillStyle = charged ? '#ff8fa3' : '#7d77a8';
-        for (let k = 0; k < 6; k++) {
-          const a = (k / 6) * Math.PI * 2 + t * 0.3;
-          circle(g, e.x + Math.cos(a) * e.r * 0.7 * sc, e.y + Math.sin(a) * e.r * 0.7 * sc, e.r * 0.44 * sc);
+        if (!place(g, charged ? 'bloom_charged' : 'bloom_spent', e.x, e.y, { scale: sc })) {
+          g.fillStyle = charged ? '#ff8fa3' : '#7d77a8';
+          for (let k = 0; k < 6; k++) {
+            const a = (k / 6) * Math.PI * 2 + t * 0.3;
+            circle(g, e.x + Math.cos(a) * e.r * 0.7 * sc, e.y + Math.sin(a) * e.r * 0.7 * sc, e.r * 0.44 * sc);
+          }
+          g.fillStyle = charged ? '#ffcf5c' : '#a59fcb';
+          circle(g, e.x, e.y, e.r * 0.62 * sc);
+          g.fillStyle = charged ? '#fff3c4' : '#c4bfe0';
+          circle(g, e.x - 3, e.y - 3, e.r * 0.24);
         }
-        g.fillStyle = charged ? '#ffcf5c' : '#a59fcb';
-        circle(g, e.x, e.y, e.r * 0.62 * sc);
-        g.fillStyle = charged ? '#fff3c4' : '#c4bfe0';
-        circle(g, e.x - 3, e.y - 3, e.r * 0.24);
+        // remaining bounces: gameplay information, so drawn over art too
         g.fillStyle = '#b86a0c';
         for (let k = 0; k < T.bumperCharges - e.hits; k++) circle(g, e.x - 5 + k * 5, e.y + 4, 1.4);
       } else if (e.kind === 'lantern') {
         const lit = sim.lit[e.li];
+        if (place(g, lit ? 'lantern_on' : 'lantern_off', e.x, e.y - 1)) continue;
         g.strokeStyle = lit ? '#b86a0c' : '#3a3166';
         g.lineWidth = 1.6;
         g.beginPath();
@@ -4169,6 +4480,7 @@ function createDiveView() {
         g.stroke();
       } else if (e.kind === 'geyser') {
         const live = e.hits < T.geyserCharges;
+        if (place(g, 'geyser_vent', e.x, e.y + 8, { w: e.w, alpha: live ? 1 : 0.45 })) continue;
         g.fillStyle = live ? '#c7cff5' : '#6d6996';
         g.beginPath();
         g.moveTo(e.x - e.w / 2, e.y - 6);
@@ -4182,6 +4494,7 @@ function createDiveView() {
         ellipse(g, e.x, e.y - 6, e.w / 2 - 5, 3);
       } else if (e.kind === 'relic') {
         const bobY = Math.sin(t * 2.4) * 1.5;
+        if (place(g, 'relic_closed', e.x, e.y + bobY)) continue;
         g.fillStyle = '#8a5326';
         roundRect(g, e.x - 11, e.y - 8 + bobY, 22, 17, 3);
         g.fill();
@@ -4193,24 +4506,27 @@ function createDiveView() {
         circle(g, e.x, e.y + 1 + bobY, 2.6);
       } else if (e.kind === 'bubble') {
         drawCreature(g, e.creature, e.x, e.y + 1, 0.82, t, { asleep: true });
-        g.fillStyle = 'rgba(190,225,255,.2)';
-        circle(g, e.x, e.y, e.r);
-        g.strokeStyle = 'rgba(255,255,255,.75)';
-        g.lineWidth = 1.4;
-        g.beginPath();
-        g.arc(e.x, e.y, e.r, 0, Math.PI * 2);
-        g.stroke();
-        g.strokeStyle = 'rgba(255,255,255,.9)';
-        g.lineWidth = 2;
-        g.beginPath();
-        g.arc(e.x, e.y, e.r - 4, 1.15 * Math.PI, 1.45 * Math.PI);
-        g.stroke();
+        if (!place(g, 'bubble', e.x, e.y, { w: e.r * 2 })) {
+          g.fillStyle = 'rgba(190,225,255,.2)';
+          circle(g, e.x, e.y, e.r);
+          g.strokeStyle = 'rgba(255,255,255,.75)';
+          g.lineWidth = 1.4;
+          g.beginPath();
+          g.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+          g.stroke();
+          g.strokeStyle = 'rgba(255,255,255,.9)';
+          g.lineWidth = 2;
+          g.beginPath();
+          g.arc(e.x, e.y, e.r - 4, 1.15 * Math.PI, 1.45 * Math.PI);
+          g.stroke();
+        }
         drawZzz(g, e.x, e.y, t);
       }
     }
 
     // the spout the Spark drops from
     const L = lvl.launcher;
+    if (place(g, 'dive_spout', L.x, L.y - 48)) return;
     g.fillStyle = '#9fb0e8';
     g.beginPath();
     g.moveTo(L.x - 30, -30);
@@ -4277,8 +4593,12 @@ function createDiveView() {
     const h = lvl.hearth;
     additive(g, () => {
       // hearth fire
-      glow(g, h.x, h.y + 2, sim.hearthW * 0.62 + Math.sin(t * 6) * 3, '#ff9d2e', 0.75 + endGlow * 0.25);
-      glow(g, h.x, h.y - 2, sim.hearthW * 0.3, '#fff3c4', 0.7);
+      if (has('hearth_dive_glow')) {
+        place(g, 'hearth_dive', h.x, h.y + 8, { w: sim.hearthW + 12, h: 36, glow: true, alpha: 0.82 + Math.sin(t * 6) * 0.1 + endGlow * 0.08 });
+      } else {
+        glow(g, h.x, h.y + 2, sim.hearthW * 0.62 + Math.sin(t * 6) * 3, '#ff9d2e', 0.75 + endGlow * 0.25);
+        glow(g, h.x, h.y - 2, sim.hearthW * 0.3, '#fff3c4', 0.7);
+      }
       if (endGlow > 0) glow(g, h.x, h.y, 160 * endGlow + 60, '#ffcf5c', endGlow * 0.7);
 
       for (const e of sim.ents) {
@@ -4289,7 +4609,8 @@ function createDiveView() {
           glow(g, e.x, by, 3.4, '#ffffff', 1);
         } else if (e.kind === 'lantern' && sim.lit[e.li]) {
           const p = pulses.get('L' + Math.round(e.x) + '_' + Math.round(e.y)) || 0;
-          glow(g, e.x, e.y, 44 + p * 40 + Math.sin(t * 3 + e.id) * 3, '#ffcf5c', 0.6 + p * 0.4);
+          if (has('lantern_on_glow')) place(g, 'lantern_on', e.x, e.y - 1, { glow: true, scale: 1 + p * 0.5, alpha: 0.7 + p * 0.3 + Math.sin(t * 3 + e.id) * 0.06 });
+          else glow(g, e.x, e.y, 44 + p * 40 + Math.sin(t * 3 + e.id) * 3, '#ffcf5c', 0.6 + p * 0.4);
         } else if (e.kind === 'lantern') {
           glow(g, e.x, e.y, 16, '#8f88ff', 0.25 + Math.sin(t * 2 + e.id) * 0.1);
         } else if (e.kind === 'relic') {
@@ -4322,10 +4643,22 @@ function createDiveView() {
         const breathe = sim.phase === 'aim' ? 1 + Math.sin(t * 5) * 0.12 : 1;
         glow(g, s.x, s.y, 30 * breathe, colors[1], 0.9);
         glow(g, s.x, s.y, 13 * breathe, colors[0], 1);
-        g.fillStyle = '#ffffff';
-        star4(g, s.x, s.y, 9 * breathe, t * 2.5);
+        if (!has('spark')) {
+          g.fillStyle = '#ffffff';
+          star4(g, s.x, s.y, 9 * breathe, t * 2.5);
+        }
       }
     });
+
+    // finished art for the small bright things sits on top of their light
+    if (has('mote')) {
+      for (const e of sim.ents) {
+        if (e.alive && e.kind === 'mote') place(g, 'mote', e.x, e.y + Math.sin(t * 2.2 + e.id) * 1.4, { quiet: true });
+      }
+    }
+    if (sim.phase !== 'done') {
+      place(g, 'spark', sim.spark.x, sim.spark.y, { scale: sim.phase === 'aim' ? 1 + Math.sin(t * 5) * 0.12 : 1 });
+    }
 
     // rekindle ring while slowed
     if (aim && aim.mode === 'rekindle') {
@@ -4342,7 +4675,7 @@ function createDiveView() {
 
   function draw(ctx, W, H, px, sim, aim) {
     if (W !== geom.W || H !== geom.H) fit(W, H);
-    const key = [W, H, px, sim.level.index].join(',');
+    const key = [W, H, px, sim.level.index, assetVersion()].join(',');
     if (key !== bgKey) {
       fit(W, H);
       buildBg(W, H, px, 100 + sim.level.index);
@@ -4714,7 +5047,8 @@ const SETTINGS = [
   ['music', 'Music box', 'A quiet generative tune'],
   ['haptics', 'Vibration', 'Small taps on phones that support it'],
   ['aimGuide', 'Aim guide', 'Show the dotted path before you launch'],
-  ['reducedMotion', 'Reduce motion', 'No screen shake, softer flashes']
+  ['reducedMotion', 'Reduce motion', 'No screen shake, softer flashes'],
+  ['artSlots', 'Art slots', 'For artists: outline where each image goes']
 ];
 
 function createSheets(app, { toast, refresh, root }) {
@@ -5567,8 +5901,12 @@ const { refreshDaily } = __m['src/progression/objectives.js'];
 const { refreshEvent } = __m['src/progression/events.js'];
 const { createWorldView } = __m['src/render/worldView.js'];
 const { glow, additive } = __m['src/render/gfx.js'];
+const { loadAssets, setSlotDebug } = __m['src/render/assets.js'];
 const { createDiveController } = __m['src/game/diveController.js'];
 const { createUi } = __m['src/ui/ui.js'];
+
+loadAssets();
+const slotsFromUrl = /[?&]slots\b/.test(location.search);
 
 const store = safeStorage();
 const boot = load(store, Date.now());
@@ -5754,6 +6092,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   clock += dt;
+  setSlotDebug(slotsFromUrl || app.state.settings.artSlots);
   ctx.setTransform(view.px, 0, 0, view.px, 0, 0);
   if (app.screen === 'dive') {
     dive.update(dt);
@@ -5769,7 +6108,6 @@ requestAnimationFrame(frame);
 
 // Handy for playtests and automated checks; not used by the game itself.
 window.__wonderlost = { app, view };
-
 return {  };
 })();
 })();

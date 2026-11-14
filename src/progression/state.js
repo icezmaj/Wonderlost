@@ -56,7 +56,7 @@ function newState(now) {
     event: { cycle: -1, points: 0, claimed: [] },
 
     flags: {}, // onboarding beats already shown
-    settings: { sfx: true, music: true, haptics: true, reducedMotion: false, aimGuide: true }
+    settings: { sfx: true, music: true, haptics: true, reducedMotion: false, aimGuide: true, artSlots: false }
   };
 }
 

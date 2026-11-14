@@ -3,16 +3,21 @@
 // the dive field, reward cards and the Finds sheet at any size.
 
 import { circle, ellipse, roundRect, star4 } from './gfx.js';
+import { has, place } from './assets.js';
 
 /**
  * Draw a creature centred on (x, y). `s` scales a ~24px-tall figure.
  * opts: { asleep, happy, flip }
  */
 function drawCreature(ctx, id, x, y, s, t, opts = {}) {
+  const blink = opts.asleep ? 0.12 : Math.sin(t * 0.9 + x) > 0.985 ? 0.15 : 1;
+  // Finished art, if this creature has any: pick the pose, falling back to idle.
+  const pose = opts.asleep ? 'asleep' : blink < 0.5 ? 'blink' : opts.happy ? 'happy' : 'idle';
+  const file = has(`${id}_${pose}`) ? `${id}_${pose}` : `${id}_idle`;
+  if (place(ctx, file, x, y, { scale: s, flip: opts.flip })) return;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(opts.flip ? -s : s, s);
-  const blink = opts.asleep ? 0.12 : Math.sin(t * 0.9 + x) > 0.985 ? 0.15 : 1;
   if (id === 'nimbit') nimbit(ctx, t, blink, opts);
   else if (id === 'sprigget') sprigget(ctx, t, blink, opts);
   else if (id === 'whistlewing') whistlewing(ctx, t, blink, opts);
@@ -175,6 +180,7 @@ function drawZzz(ctx, x, y, t) {
  * `silhouette` draws the undiscovered version.
  */
 function drawArtifact(ctx, id, x, y, s, silhouette = false) {
+  if (place(ctx, 'art_' + id, x, y, { scale: s, silhouette: silhouette ? '#3b3478' : null })) return;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(s, s);

@@ -20,7 +20,8 @@ const SETTINGS = [
   ['music', 'Music box', 'A quiet generative tune'],
   ['haptics', 'Vibration', 'Small taps on phones that support it'],
   ['aimGuide', 'Aim guide', 'Show the dotted path before you launch'],
-  ['reducedMotion', 'Reduce motion', 'No screen shake, softer flashes']
+  ['reducedMotion', 'Reduce motion', 'No screen shake, softer flashes'],
+  ['artSlots', 'Art slots', 'For artists: outline where each image goes']
 ];
 
 function createSheets(app, { toast, refresh, root }) {

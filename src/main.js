@@ -10,8 +10,12 @@ import { refreshDaily } from './progression/objectives.js';
 import { refreshEvent } from './progression/events.js';
 import { createWorldView } from './render/worldView.js';
 import { glow, additive } from './render/gfx.js';
+import { loadAssets, setSlotDebug } from './render/assets.js';
 import { createDiveController } from './game/diveController.js';
 import { createUi } from './ui/ui.js';
+
+loadAssets();
+const slotsFromUrl = /[?&]slots\b/.test(location.search);
 
 const store = safeStorage();
 const boot = load(store, Date.now());
@@ -197,6 +201,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   clock += dt;
+  setSlotDebug(slotsFromUrl || app.state.settings.artSlots);
   ctx.setTransform(view.px, 0, 0, view.px, 0, 0);
   if (app.screen === 'dive') {
     dive.update(dt);

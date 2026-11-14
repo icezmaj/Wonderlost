@@ -100,60 +100,88 @@ lit areas shift toward butter.
 
 ## 7. File rules
 
-- **Format:** PNG, transparent background, straight (non-premultiplied) alpha.
-  The backdrop is the only opaque image.
-- **Size:** the game's play area is 360 × 640 units. Export at **4×**: an object
-  listed as 32 units wide is drawn 128 px wide.
-- **Padding:** leave at least 12% empty margin on every side so soft edges and
-  shadows are not cut off.
-- **Anchor:** the object's ground contact point sits at the horizontal centre
-  of the image, 12% up from the bottom. Floating objects are centred.
+- **Format:** PNG or WebP with a transparent background and straight
+  (non-premultiplied) alpha. The two backdrops are the only opaque images.
+  WebP keeps the game file much smaller; prefer it for anything large.
+- **Size:** each table below gives the export size in pixels. It is the
+  object's on-screen size at 4×, plus the margin.
+- **Margin:** leave 12% of the image empty on every side, so soft edges and
+  shadows are not cut off. The object fills the middle 76%.
+- **Anchor:** grounded objects touch the ground at the horizontal centre, 12%
+  up from the bottom edge. Floating objects are centred.
 - **Shadows:** include the soft contact shadow under grounded objects. Do not
   include long cast shadows.
-- **Names:** lowercase, underscores, as listed below. Stages end in `_0` to
-  `_3`. Glow halos end in `_glow`.
+- **Glow layers:** a `_glow` file is **twice the width and height** of its
+  parent image, centred on the same point, so the halo has room to fade out.
+  It contains only light, on transparent.
+- **Names:** exactly as listed, lowercase with underscores. The file name is
+  what puts the image in the right place.
+
+### Getting an image into the game
+
+1. Save the file into the `assets/` folder under its slot name
+   (for example `assets/lantern_on.webp`).
+2. Run `node tools/build.js`.
+3. Open `dist/wonderlost.html`.
+
+Slots without an image keep their current code-drawn art, so images can arrive
+one at a time. To see where every slot sits, turn on **Settings → Art slots**
+in the game: each slot is outlined and labelled with its file name (pink when
+empty, green when filled).
 
 ## 8. Asset list: Mistlewick
 
-Sizes are in game units (multiply by 4 for pixels). "Stage 0" is the asleep
-state; stages 1–3 follow the three upgrade levels and should each be visibly
-richer than the last, so a returning player can see what they paid for.
+This list mirrors `src/config/slots.js`, which is what the game actually
+reads. "On screen" is the object's size in game units (the play area is
+360 wide). Stage 0 is the asleep state; stages 1–3 follow the three upgrade
+levels and should each be visibly richer than the last, so a returning player
+can see what they paid for.
 
-### 8.1 World scene (home screen)
+### 8.1 Home screen
 
-| File | What it is | Size (units) | Count |
+The scene is a teapot standing on a surface, seen from outside with its lid
+off. Four small cloud islands float above its opening, and the village is
+built on them: bell tower on the top island, cottages on the left, garden on
+the right, Hearth Well on the lowest island in the middle.
+
+| File | On screen | Export px | Notes |
 |---|---|---|---|
-| `mw_backdrop` | Teal gradient sky with soft haze, no objects. Opaque. | 360 × 640 | 1 |
-| `mw_teapot_0`–`_3` | The teapot the village lives in, cut away so the inside shows. Stage 0: cracked, dull glaze. Stages 1–3: cracks sealed with seam gold, glaze warming up. | 320 × 300 | 4 |
-| `mw_island` | Cloud island the village stands on, inside the teapot. | 260 × 90 | 1 |
-| `mw_hearth_0`–`_3` | Hearth Well: a stone well. 0: cold and dark. 3: brimming with gold light. | 56 × 64 | 4 |
-| `mw_cottages_0`–`_3` | Cloud Cottages: 0: one sleepy hut. 3: a cluster of three with lit windows. | 110 × 90 | 4 |
-| `mw_lanterns_0`–`_3` | Lantern Lane: strings of paper lanterns. 0: bare posts. 3: full glowing string. | 200 × 60 | 4 |
-| `mw_belltower_0`–`_3` | Bell Tower: 0: stump of a tower, no bell. 3: tall tower, gold bell, pointed drooping roof. | 60 × 130 | 4 |
-| `mw_garden_0`–`_3` | Steam Garden: 0: bare vents. 3: tea bushes and flowers around steaming vents. | 120 × 50 | 4 |
-| `mw_moon` | Porcelain moon (reward for the artifact set). | 48 × 48 | 1 |
-| `mw_fore_mist` | Soft foreground mist band for depth. | 360 × 100 | 1 |
-| `*_glow` | Glow halo for each stage 1–3 of hearth, cottages, lanterns, belltower. | as parent | 12 |
+| `mw_backdrop` | 360 × 640 | 1440 × 2560 | Teal sky with soft haze, no objects. Opaque. Cropped to fit each phone, so keep the edges plain. |
+| `mw_desk` | 360 × 200 | 1440 × 800 | The surface the teapot stands on. The top edge is the horizon line. |
+| `mw_moon` | 40 × 40 | 211 × 211 | Porcelain moon, shown once the artifact set is complete. |
+| `mw_teapot_0`–`_3` | 296 × 144 | 1558 × 758 | Whole teapot: handle left, spout right, open top. 0: cracked, dull glaze. 1–3: cracks sealed one by one with seam gold, glaze warming. |
+| `mw_island` | 160 × 40 | 842 × 211 | One cloud island, reused for all four (shown faint under anything not yet built). |
+| `mw_hearth_0`–`_3` | 64 × 80 | 337 × 421 | Hearth Well. 0: cold and dark. 3: roofed and brimming with gold light. |
+| `mw_cottages_0`–`_3` | 110 × 70 | 579 × 368 | Cloud Cottages. 0: one sleepy hut. 3: a cluster of three with lit windows. |
+| `mw_lanterns_0`–`_3` | 240 × 160 | 1263 × 842 | Lantern Lane: every lantern string as one transparent overlay spanning the islands. 0: bare cords. 3: four full glowing strings. Use the Art slots outline to line the ends up with the islands. |
+| `mw_belltower_0`–`_3` | 60 × 96 | 316 × 506 | Bell Tower. 0: stump, no bell. 3: tall tower, gold bell, pointed drooping roof. |
+| `mw_garden_0`–`_3` | 100 × 50 | 526 × 263 | Steam Garden. 0: bare vents. 3: tea bushes and flowers around steaming vents. |
+| `mw_fore_mist` | 360 × 90 | 1440 × 360 | Soft mist band in front of the teapot's foot. |
+| `mw_hearth_1`–`_3_glow`, `mw_cottages_…_glow`, `mw_lanterns_…_glow`, `mw_belltower_…_glow` | 2× parent | 2× parent | One glow layer for each of stages 1–3 of these four buildings. |
 
-**40 images.**
+**41 images** (29 + 12 glow layers).
 
 ### 8.2 Creatures
 
-Each creature needs three poses at 96 × 96 units. Eyes are delivered open; add
-one extra eyes-closed frame per creature for blinking.
+Four files each, 384 × 384 px. They appear small in the village (about 28
+units) and large on their journal cards, so they must read at both sizes.
 
-| File | Creature | Notes |
+| Files | Creature | Notes |
 |---|---|---|
 | `nimbit_idle`, `_asleep`, `_happy`, `_blink` | Nimbit, a shy cloud-puff | Round white-cream puff, mint underside, tiny feet. |
 | `sprigget_idle`, `_asleep`, `_happy`, `_blink` | Sprigget, a tea-leaf glider | Small body with two large leaf wings, mint and butter. |
 | `whistlewing_idle`, `_asleep`, `_happy`, `_blink` | Whistlewing, a kettle-owl | Owl shaped like a little kettle, spout beak, rose and cream. |
 
+`_blink` is the idle pose with eyes closed. Only `_idle` is required; any
+missing pose falls back to it. Creatures face right; the game mirrors them.
+
 **12 images.**
 
 ### 8.3 Artifacts (Tea Service of the First Dawn)
 
-One image each at 64 × 64 units, same toy treatment, each with a small gold
-accent so they read as treasures.
+One image each, 256 × 256 px, same toy treatment, each with a small gold
+accent so they read as treasures. The game makes the "not found yet"
+silhouette from the same file.
 
 `art_spoon` (Gilded Teaspoon), `art_sugarstar` (Sugar Star), `art_spool`
 (Cloud-Thread Spool), `art_bell` (Porcelain Bell), `art_compass` (Chamomile
@@ -166,21 +194,26 @@ Compass), `art_whistle` (Steam Whistle).
 These are small on screen and move fast, so they need the **strongest
 silhouettes and the least detail** of anything in the game.
 
-| File | What it is | Size (units) | Count |
+| File | On screen | Export px | Notes |
 |---|---|---|---|
-| `dive_backdrop` | Inside a hollow: darker teal, soft cloud walls at the edges. Opaque. | 360 × 640 | 1 |
-| `spark`, `spark_glow` | The player's Spark: a small gold star-drop with a face-free warm core. | 24 × 24 | 2 |
-| `mote` | A tiny gold bead of Glow. | 10 × 10 | 1 |
-| `lantern_off`, `lantern_on`, `lantern_glow` | Paper lantern, unlit and lit. | 40 × 48 | 3 |
-| `bloom_charged`, `bloom_spent` | Bell bloom: a bell-shaped flower that bounces the Spark. Spent is closed and pale. | 44 × 44 | 2 |
-| `ledge` | Cloud ledge, drawn level; the game tilts it. | 72 × 24 | 1 |
-| `roof` | Small peaked roof that shelters a relic. | 64 × 32 | 1 |
-| `relic_closed`, `relic_open` | Relic crate: a small gift-like box with a gold clasp. | 36 × 36 | 2 |
-| `geyser_vent` | Steam vent in the hollow floor. Steam is drawn by the game. | 56 × 28 | 1 |
-| `hearth_dive`, `hearth_dive_glow` | The Hearth at the bottom of the hollow: a wide glowing bowl. | 96 × 44 | 2 |
-| `bubble` | Glass bubble a sleeping creature floats in. Mostly transparent. | 52 × 52 | 1 |
+| `dive_backdrop` | 360 × 640 | 1440 × 2560 | Inside a hollow: darker teal, soft cloud walls at the edges. Opaque. |
+| `dive_spout` | 64 × 80 | 337 × 421 | The spout the Spark drops from, hanging down from the top edge. |
+| `spark` | 20 × 20 | 105 × 105 | The player's Spark: a small warm-white star-drop, no face. Its glow and trail are drawn in code so unlockable trail colours still work. |
+| `mote` | 8 × 8 | 42 × 42 | A tiny bead of Glow. |
+| `lantern_off` | 22 × 30 | 116 × 158 | Paper lantern, unlit. |
+| `lantern_on` | 22 × 30 | 116 × 158 | The same lantern, lit. |
+| `lantern_on_glow` | 2× parent | 232 × 316 | Its halo. |
+| `bloom_charged` | 40 × 40 | 211 × 211 | Bell bloom: a bell-shaped flower that bounces the Spark. |
+| `bloom_spent` | 40 × 40 | 211 × 211 | The same bloom, closed and pale. |
+| `ledge` | 72 × 22 | 379 × 116 | Cloud ledge, drawn level; the game tilts it. |
+| `roof` | 62 × 22 | 326 × 116 | Small peaked roof that shelters a relic. |
+| `relic_closed` | 26 × 22 | 137 × 116 | Relic crate: a small gift-like box with a gold clasp. |
+| `geyser_vent` | 48 × 30 | 253 × 158 | Steam vent in the hollow floor. Steam is drawn in code. |
+| `hearth_dive` | 90 × 36 | 474 × 190 | The Hearth: a wide glowing bowl. Stretched sideways as the Hearth widens, so keep it simple. |
+| `hearth_dive_glow` | 2× parent | 948 × 380 | Its halo. |
+| `bubble` | 38 × 38 | 200 × 200 | Glass bubble a sleeping creature floats in. Mostly transparent. |
 
-**17 images.**
+**16 images.**
 
 ### 8.5 Interface
 
@@ -191,10 +224,10 @@ later: a painted `logo` and a painted app icon in this style.
 
 | Group | Images |
 |---|---|
-| World scene | 40 |
+| Home screen | 41 |
 | Creatures | 12 |
 | Artifacts | 6 |
-| Dive screen | 17 |
+| Dive screen | 16 |
 | **Total** | **75** |
 
 ## 9. Make these twelve first
@@ -207,12 +240,12 @@ on a phone before continuing. It covers one of every kind of thing.
 3. `mw_teapot_3`
 4. `mw_island`
 5. `mw_cottages_0`
-6. `mw_cottages_3` (+ `_glow`)
-7. `mw_hearth_3` (+ `_glow`)
+6. `mw_cottages_3` (+ `mw_cottages_3_glow`)
+7. `mw_hearth_3` (+ `mw_hearth_3_glow`)
 8. `nimbit_idle`
 9. `nimbit_asleep`
 10. `lantern_off`
-11. `lantern_on` (+ `_glow`)
+11. `lantern_on` (+ `lantern_on_glow`)
 12. `art_bell`
 
 If `mw_cottages_3` and `nimbit_idle` look like they belong in the same box,
@@ -256,7 +289,7 @@ Tips for image tools specifically:
 - [ ] Uses three or four palette colours; gold only on light or treasure
 - [ ] Recognisable as a silhouette at thumbnail size
 - [ ] Transparent background, clean edges, 12% margin, correct anchor
-- [ ] Glow delivered as a separate `_glow` layer
+- [ ] Glow delivered as a separate `_glow` layer, twice the parent's size
 - [ ] No painted sparkles, steam, hearts or text
 - [ ] Sits comfortably next to `mw_cottages_3` and `nimbit_idle`
 
