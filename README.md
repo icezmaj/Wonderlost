@@ -8,6 +8,7 @@ Mobile game
 - `assets/` — finished art, one image per slot (see below)
 - `docs/ART_GUIDE.md` — art style rules and the full asset list
 - `tools/build.js` — bundles `src/` and `assets/` into `dist/wonderlost.html`
+- `tools/fit_art.py` — fits downloaded images to their slots and saves them into `assets/`
 - `tools/slot-test-art.js` — makes labelled test images for every slot
 - `tools/unbundle.py` — splits a bundled build back into `src/`
 - `tools/smoke.js` — headless load check: `node tools/smoke.js <abs path to html> <screenshot path>`
@@ -21,8 +22,15 @@ node tools/build.js
 ## Adding art
 
 Every piece of art in the game is drawn in code until an image replaces it.
-To replace one, save an image into `assets/` named after its slot
-(`assets/nimbit_idle.webp`, `assets/mw_teapot_0.png`, …) and rebuild. The slot
+To replace one, name the image after its slot (`nimbit_idle.png`,
+`mw_teapot_0.png`, …) and run:
+
+```
+python3 tools/fit_art.py <image or folder>   # trim, pad, resize, save to assets/ as WebP
+node tools/build.js
+```
+
+`fit_art.py` needs Pillow (`pip install pillow`). The slot
 names, sizes and positions are defined in `src/config/slots.js` and listed for
 artists in `docs/ART_GUIDE.md`.
 

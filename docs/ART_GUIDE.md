@@ -119,10 +119,18 @@ lit areas shift toward butter.
 
 ### Getting an image into the game
 
-1. Save the file into the `assets/` folder under its slot name
-   (for example `assets/lantern_on.webp`).
-2. Run `node tools/build.js`.
-3. Open `dist/wonderlost.html`.
+1. Name the downloaded file after its slot (for example `lantern_on.png`)
+   and put it in any folder, say `downloads/`.
+2. Run `python3 tools/fit_art.py downloads/`. This trims the image, adds the
+   12% margin, sets the anchor, resizes it to the export size and saves it as
+   WebP in `assets/`. It also removes a plain flat background from images that
+   came without transparency, and reports anything it could not use.
+3. Run `node tools/build.js`.
+4. Open `dist/wonderlost.html`.
+
+Because of step 2, images from an image tool do not need to match the size,
+margin and anchor rules above exactly. They still need to be one whole object,
+not touching the image edge, on a transparent or plain flat background.
 
 Slots without an image keep their current code-drawn art, so images can arrive
 one at a time. To see where every slot sits, turn on **Settings → Art slots**
