@@ -49,8 +49,23 @@ const path = require('node:path');
     const afterAim = await page.evaluate(() => ({ screen: window.__wonderlost?.app?.screen, hint: document.getElementById('hint')?.textContent }));
     console.log('After aim:', JSON.stringify(afterAim));
     if (afterAim.hint?.includes('Touch and drag to aim')) throw new Error('Aim gesture was ignored; first dive remains stuck waiting for input');
-    if (errors.length) throw new Error('Browser errors:\n' + errors.join('\n'));
-    console.log('PASS: title, begin, first dive and aim gesture completed without browser errors.');
+    // Verify players can return home and open the restoration menu.
+    await page.evaluate(() => window.__wonderlost.app.goHome());
+    await page.waitForFunction(() => window.__wonderlost.app.screen === 'home', null, { timeout: 5000 });
+    await page.screenshot({ path: 'wonderlost-home.png' });
+    await page.locator('#b-restore').click();
+    const restoreOpened = await page.locator('#sheet').evaluate(el => !el.hidden);
+    if (!restoreOpened) throw new Error('Restore button did not open the restoration sheet');
+    await page.evaluate(() => window.__wonderlost.app.ui.closeSheet());
+    await page.locator('#b-dive').click();
+    await page.waitForFunction(() => window.__wonderlost.app.screen === 'dive', null, { timeout: 10000 });
+
+    // The deployed Pages URL must load, not just the checked-in local HTML.
+    await page.goto('https://icezmaj.github.io/Wonderlost/?smoke=' + Date.now(), { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
+    console.log('Public GitHub Pages: title loaded successfully');
+    if (errors.length) throw new Error('Browser errors:\\n' + errors.join('\\n'));
+    console.log('PASS: local title, dive, aim, home, Restore, second dive and public Pages launch.');
   } finally {
     await browser.close();
   }
