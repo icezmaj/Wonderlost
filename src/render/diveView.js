@@ -235,13 +235,13 @@ function createDiveView() {
       if (place(g, 'ledge', (s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2, { w: Math.hypot(dx, dy) + 12, rot: Math.atan2(dy, dx) })) return;
     }
     if (s.kind === 'roof') {
-      g.strokeStyle = '#2f3fa8';
+      g.strokeStyle = '#b9566c';
       g.lineWidth = 10;
       g.beginPath();
       g.moveTo(s.x1, s.y1 + 2);
       g.lineTo(s.x2, s.y2 + 2);
       g.stroke();
-      g.strokeStyle = '#6f8cff';
+      g.strokeStyle = '#f4a6b4';
       g.lineWidth = 7;
       g.beginPath();
       g.moveTo(s.x1, s.y1);
@@ -249,19 +249,19 @@ function createDiveView() {
       g.stroke();
       return;
     }
-    g.strokeStyle = '#8a82c8';
+    g.strokeStyle = '#c9a6c4';
     g.lineWidth = 13;
     g.beginPath();
     g.moveTo(s.x1, s.y1 + 3);
     g.lineTo(s.x2, s.y2 + 3);
     g.stroke();
-    g.strokeStyle = '#f4f1ff';
+    g.strokeStyle = '#fff4dc';
     g.lineWidth = 10;
     g.beginPath();
     g.moveTo(s.x1, s.y1);
     g.lineTo(s.x2, s.y2);
     g.stroke();
-    g.fillStyle = '#f4f1ff';
+    g.fillStyle = '#fff4dc';
     for (let k = 0.2; k < 1; k += 0.3) circle(g, s.x1 + (s.x2 - s.x1) * k, s.y1 + (s.y2 - s.y1) * k - 3, 6.5);
   }
 
@@ -273,17 +273,27 @@ function createDiveView() {
     const h = lvl.hearth;
     const half = sim.hearthW / 2;
     if (!place(g, 'hearth_dive', h.x, h.y + 8, { w: sim.hearthW + 12, h: 36 })) {
-      g.fillStyle = '#6d63a6';
+      // a rose bowl with a gold rim, so it cannot be mistaken for a geyser vent
+      const bowl = g.createLinearGradient(0, h.y - 4, 0, h.y + 26);
+      bowl.addColorStop(0, '#f4a6b4');
+      bowl.addColorStop(1, '#a8527a');
+      g.fillStyle = bowl;
       g.beginPath();
       g.moveTo(h.x - half - 6, h.y - 4);
       g.quadraticCurveTo(h.x, h.y + 52, h.x + half + 6, h.y - 4);
       g.closePath();
       g.fill();
-      g.fillStyle = '#2a1d55';
-      ellipse(g, h.x, h.y - 2, half - 2, 6);
-      g.fillStyle = '#e6e0fb';
-      circle(g, h.x - half, h.y - 2, 5);
-      circle(g, h.x + half, h.y - 2, 5);
+      g.fillStyle = '#f5b942';
+      ellipse(g, h.x, h.y - 3, half + 5, 8);
+      g.fillStyle = '#ffe9a8';
+      ellipse(g, h.x, h.y - 4, half + 3, 6.4);
+      g.fillStyle = '#7a2f3f';
+      ellipse(g, h.x, h.y - 3, half - 3, 4.6);
+      g.fillStyle = '#ffcf5c';
+      ellipse(g, h.x, h.y - 2.4, half - 6, 3);
+      g.fillStyle = '#fff3c4';
+      circle(g, h.x - half - 3, h.y - 3, 5.5);
+      circle(g, h.x + half + 3, h.y - 3, 5.5);
     }
 
     for (const e of sim.ents) {
@@ -338,16 +348,16 @@ function createDiveView() {
       } else if (e.kind === 'geyser') {
         const live = e.hits < T.geyserCharges;
         if (place(g, 'geyser_vent', e.x, e.y + 8, { w: e.w, alpha: live ? 1 : 0.45 })) continue;
-        g.fillStyle = live ? '#c7cff5' : '#6d6996';
+        g.fillStyle = live ? '#8fcfc4' : '#5f6690';
         g.beginPath();
         g.moveTo(e.x - e.w / 2, e.y - 6);
         g.lineTo(e.x + e.w / 2, e.y - 6);
         g.quadraticCurveTo(e.x + e.w / 2 - 4, e.y + 22, e.x, e.y + 22);
         g.quadraticCurveTo(e.x - e.w / 2 + 4, e.y + 22, e.x - e.w / 2, e.y - 6);
         g.fill();
-        g.fillStyle = live ? '#f4f7ff' : '#8a86b3';
+        g.fillStyle = live ? '#e4fbf5' : '#8a86b3';
         ellipse(g, e.x, e.y - 6, e.w / 2, 5);
-        g.fillStyle = live ? '#6f8cff' : '#57527f';
+        g.fillStyle = live ? '#2f9f95' : '#4b4a72';
         ellipse(g, e.x, e.y - 6, e.w / 2 - 5, 3);
       } else if (e.kind === 'relic') {
         const bobY = Math.sin(t * 2.4) * 1.5;
@@ -384,7 +394,7 @@ function createDiveView() {
     // the spout the Spark drops from
     const L = lvl.launcher;
     if (place(g, 'dive_spout', L.x, L.y - 48)) return;
-    g.fillStyle = '#9fb0e8';
+    g.fillStyle = '#d98a9e';
     g.beginPath();
     g.moveTo(L.x - 30, -30);
     g.lineTo(L.x + 30, -30);
@@ -392,7 +402,7 @@ function createDiveView() {
     g.lineTo(L.x - 15, L.y - 10);
     g.closePath();
     g.fill();
-    g.fillStyle = '#eef2ff';
+    g.fillStyle = '#f7c1cb';
     g.beginPath();
     g.moveTo(L.x - 30, -30);
     g.lineTo(L.x + 12, -30);
@@ -400,8 +410,11 @@ function createDiveView() {
     g.lineTo(L.x - 15, L.y - 10);
     g.closePath();
     g.fill();
-    g.fillStyle = '#3f62e0';
-    roundRect(g, L.x - 18, L.y - 14, 36, 6, 3);
+    g.fillStyle = '#f5b942';
+    roundRect(g, L.x - 19, L.y - 15, 38, 7, 3.5);
+    g.fill();
+    g.fillStyle = '#ffe9a8';
+    roundRect(g, L.x - 17, L.y - 14.5, 24, 2.4, 1.2);
     g.fill();
   }
 
@@ -414,7 +427,7 @@ function createDiveView() {
       dark.width = dw;
       dark.height = dh;
     }
-    const alpha = 0.66 * (1 - awake * 0.92);
+    const alpha = 0.54 * (1 - awake * 0.92);
     if (alpha < 0.02) return;
     dctx.globalCompositeOperation = 'source-over';
     dctx.clearRect(0, 0, dw, dh);
@@ -435,12 +448,15 @@ function createDiveView() {
     };
     hole(sim.spark.x, sim.spark.y, 96);
     hole(sim.level.launcher.x, sim.level.launcher.y - 20, 80);
-    hole(sim.level.hearth.x, sim.level.hearth.y, 84);
+    hole(sim.level.hearth.x, sim.level.hearth.y, 110);
     for (const e of sim.ents) {
       if (e.kind === 'lantern' && sim.lit[e.li]) hole(e.x, e.y, 120);
-      else if (e.kind === 'lantern') hole(e.x, e.y, 30);
-      else if ((e.kind === 'relic' || e.kind === 'bubble') && e.alive) hole(e.x, e.y, 44);
+      else if (e.kind === 'lantern') hole(e.x, e.y, 46);
+      else if ((e.kind === 'relic' || e.kind === 'bubble') && e.alive) hole(e.x, e.y, 48);
+      else if (e.kind === 'bumper') hole(e.x, e.y, 40);
+      else if (e.kind === 'geyser') hole(e.x, e.y - 4, 44);
     }
+    for (const s of sim.level.segments) hole((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2, 48);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(dark, 0, 0, dw * q, dh * q);
   }
@@ -457,6 +473,8 @@ function createDiveView() {
         glow(g, h.x, h.y - 2, sim.hearthW * 0.3, '#fff3c4', 0.7);
       }
       if (endGlow > 0) glow(g, h.x, h.y, 160 * endGlow + 60, '#ffcf5c', endGlow * 0.7);
+      // a faint column of warm light above the Hearth: "home is here"
+      for (let i = 1; i <= 5; i++) glow(g, h.x, h.y - i * 30, sim.hearthW * 0.5 + i * 6, '#ffcf5c', (0.11 + Math.sin(t * 1.6) * 0.02) * (1 - i / 6));
 
       for (const e of sim.ents) {
         if (!e.alive) continue;
@@ -469,7 +487,7 @@ function createDiveView() {
           if (has('lantern_on_glow')) place(g, 'lantern_on', e.x, e.y - 1, { glow: true, scale: 1 + p * 0.5, alpha: 0.7 + p * 0.3 + Math.sin(t * 3 + e.id) * 0.06 });
           else glow(g, e.x, e.y, 44 + p * 40 + Math.sin(t * 3 + e.id) * 3, '#ffcf5c', 0.6 + p * 0.4);
         } else if (e.kind === 'lantern') {
-          glow(g, e.x, e.y, 16, '#8f88ff', 0.25 + Math.sin(t * 2 + e.id) * 0.1);
+          glow(g, e.x, e.y, 26, '#b9a6ff', 0.3 + Math.sin(t * 2 + e.id) * 0.12);
         } else if (e.kind === 'relic') {
           glow(g, e.x, e.y, 24 + Math.sin(t * 3) * 3, '#ffcf5c', 0.5);
         } else if (e.kind === 'bumper' && pulses.get(e.id)) {
@@ -485,7 +503,8 @@ function createDiveView() {
         for (let i = 0; i < n; i++) {
           const p = aim.pts[i];
           const k = 1 - i / (n + 2);
-          glow(g, p.x, p.y, 3.2 + k * 3.2, aim.mode === 'rekindle' ? '#ffffff' : colors[1], 0.35 + k * 0.6);
+          glow(g, p.x, p.y, 5 + k * 4.5, aim.mode === 'rekindle' ? '#ffffff' : colors[1], 0.5 + k * 0.5);
+          glow(g, p.x, p.y, 2 + k * 1.6, '#ffffff', 0.5 + k * 0.5);
         }
       }
 
@@ -498,11 +517,11 @@ function createDiveView() {
       if (sim.phase !== 'done') {
         const s = sim.spark;
         const breathe = sim.phase === 'aim' ? 1 + Math.sin(t * 5) * 0.12 : 1;
-        glow(g, s.x, s.y, 30 * breathe, colors[1], 0.9);
-        glow(g, s.x, s.y, 13 * breathe, colors[0], 1);
+        glow(g, s.x, s.y, 38 * breathe, colors[1], 0.9);
+        glow(g, s.x, s.y, 16 * breathe, colors[0], 1);
         if (!has('spark')) {
           g.fillStyle = '#ffffff';
-          star4(g, s.x, s.y, 9 * breathe, t * 2.5);
+          star4(g, s.x, s.y, 11 * breathe, t * 2.5);
         }
       }
     });

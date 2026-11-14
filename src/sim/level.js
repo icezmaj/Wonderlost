@@ -185,7 +185,15 @@ function buildLevel(hollow, mods = {}) {
       segments.push({ x1: FIELD.w + 4, y1: 546, x2: FIELD.w - 58, y2: 571, th: 4, kind: 'ledge' });
     }
   }
-  if (nGeysers >= 3) ents.push({ kind: 'geyser', x: hearth.x + firstSide * 102, y: 620, w: 44 });
+  if (nGeysers >= 3) {
+    // The third vent goes on whichever side of the Hearth has more room, centred
+    // in the gap between the corner vent and the widest the Hearth can be, so
+    // it never overlaps either.
+    const side = hearth.x > 180 ? -1 : hearth.x < 180 ? 1 : firstSide;
+    const reach = (T.hearthWidth * 1.45) / 2 + 6;
+    const x = side < 0 ? (66 + hearth.x - reach) / 2 : (FIELD.w - 66 + hearth.x + reach) / 2;
+    ents.push({ kind: 'geyser', x: Math.round(x), y: 620, w: 44 });
+  }
 
   // --- sleeping creature ---
   if (hollow.bubble && !hollow.bubbleTaken) {

@@ -207,9 +207,9 @@ silhouettes and the least detail** of anything in the game.
 | `dive_spout` | 64 × 80 | 337 × 421 | The spout the Spark drops from, hanging down from the top edge. |
 | `spark` | 20 × 20 | 105 × 105 | The player's Spark: a small warm-white star-drop, no face. Its glow and trail are drawn in code so unlockable trail colours still work. |
 | `mote` | 8 × 8 | 42 × 42 | A tiny bead of Glow. |
-| `lantern_off` | 22 × 30 | 116 × 158 | Paper lantern, unlit. |
-| `lantern_on` | 22 × 30 | 116 × 158 | The same lantern, lit. |
-| `lantern_on_glow` | 2× parent | 232 × 316 | Its halo. |
+| `lantern_off` | 30 × 41 | 158 × 216 | Paper lantern, unlit. |
+| `lantern_on` | 30 × 41 | 158 × 216 | The same lantern, lit. |
+| `lantern_on_glow` | 2× parent | 316 × 432 | Its halo. |
 | `bloom_charged` | 40 × 40 | 211 × 211 | Bell bloom: a bell-shaped flower that bounces the Spark. |
 | `bloom_spent` | 40 × 40 | 211 × 211 | The same bloom, closed and pale. |
 | `ledge` | 72 × 22 | 379 × 116 | Cloud ledge, drawn level; the game tilts it. |
