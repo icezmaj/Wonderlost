@@ -24,7 +24,16 @@ const DIAL_SLOTS = [
   [180, 306, 2], [98, 398, 2], [262, 398, 2],
   [142, 458, 3], [218, 458, 3]
 ];
-const LAYOUTS = { rows: SLOTS, dial: DIAL_SLOTS };
+
+// Hushfall's hollows are a six-pointed snowflake: a centre, a ring of points,
+// and long ice slides instead of cloud ledges.
+const FLAKE_SLOTS = [
+  [180, 178, 0], [92, 236, 0], [268, 236, 0],
+  [48, 306, 1], [312, 306, 1], [180, 300, 1],
+  [92, 374, 2], [268, 374, 2], [180, 372, 2],
+  [180, 444, 3]
+];
+const LAYOUTS = { rows: SLOTS, dial: DIAL_SLOTS, flake: FLAKE_SLOTS };
 
 // The first hollow every player sees (hollow 0) is authored by hand.
 const TUTORIAL = {
@@ -149,6 +158,8 @@ function buildLevel(hollow, mods = {}, style = {}) {
   const hasRelic = !tutorial && hollow.relic && !hollow.relicTaken;
   let nBumpers = tutorial ? TUTORIAL.bumpers.length : Math.min(4, 1 + (mods.bumpers || 0));
   if (layout === DIAL_SLOTS) nBumpers = Math.max(0, Math.min(nBumpers, pool.length - nCogs - (hasRelic ? 1 : 0) - 1));
+  // a snowflake hollow keeps anchors free for its ice slides
+  if (layout === FLAKE_SLOTS) nBumpers = Math.min(nBumpers, 2);
   for (let b = 0; b < nBumpers && pool.length; b++) {
     const s = take((q) => q.row >= 1);
     ents.push({ kind: 'bumper', x: s.x, y: s.y, r: 17 });
@@ -168,12 +179,33 @@ function buildLevel(hollow, mods = {}, style = {}) {
     ents.push({ kind: 'relic', x: s.x, y: s.y + 3, r: 13 });
   }
 
-  const nLedges = tutorial ? 0 : Math.min(2, pool.length);
+  const icy = layout === FLAKE_SLOTS;
+  const nLedges = tutorial ? 0 : Math.min(icy ? 3 : 2, pool.length);
   for (let l = 0; l < nLedges; l++) {
     const s = take();
     const dir = s.x < 150 ? 1 : s.x > 210 ? -1 : rng() < 0.5 ? 1 : -1; // slope toward the centre
+    if (icy) {
+      // a long ice slide, with motes laid along the glide
+      segments.push({ x1: s.x - 42, y1: s.y - 15 * dir, x2: s.x + 42, y2: s.y + 15 * dir, th: 4, kind: 'ice' });
+      for (let k = -2; k <= 2; k++) motes.push({ x: s.x + k * 17, y: s.y + k * 6 * dir - 20 });
+      continue;
+    }
     segments.push({ x1: s.x - 30, y1: s.y - 11 * dir, x2: s.x + 30, y2: s.y + 11 * dir, th: 4, kind: 'ledge' });
     for (let k = -1; k <= 1; k++) motes.push({ x: s.x + k * 20, y: s.y + k * 7 * dir - 24 });
+  }
+
+  // Gusts of wind (Hushfall): streams that blow in from alternate walls, each
+  // carrying a line of motes. They are not solid.
+  if (icy) {
+    const nGusts = Math.min(3, mods.gusts || 0);
+    const first = rng() < 0.5 ? 1 : -1;
+    for (let k = 0; k < nGusts; k++) {
+      const dir = k % 2 ? -first : first; // +1 blows right, from the left wall
+      const y = [268, 340, 412][k] + Math.round(range(rng, -8, 8));
+      const x = dir > 0 ? 105 : FIELD.w - 105;
+      ents.push({ kind: 'gust', x, y, w: 210, h: 52, dir });
+      for (let i = 0; i < 6; i++) motes.push({ x: x - dir * 80 + dir * i * 32, y: y + Math.sin(i * 1.3) * 6 });
+    }
   }
 
   // Remaining slots become mote clusters.

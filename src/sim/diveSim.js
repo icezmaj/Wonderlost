@@ -35,7 +35,8 @@ function createDive(level, mods = {}) {
     hearthW: level.hearth.w * Math.min(T.hearthMaxScale, (mods.hearthScale || 1) * (1 + (mods.hearthGrow || 0))),
     chainMax: Math.round((T.chainWindow + (mods.chainWindow || 0) + (mods.chainBonus || 0)) / STEP),
     cogHits: 0,
-    rekindles: T.baseRekindles + (mods.extraRekindles || 0),
+    gustHits: 0,
+    rekindles: T.baseRekindles + (mods.extraRekindles || 0) + (mods.rekindleUp || 0),
     rekindlesUsed: 0,
     chain: 0,
     tier: 1,
@@ -69,6 +70,14 @@ function launch(sim, angle) {
   sim.spark.vx = Math.cos(a) * T.launchSpeed;
   sim.spark.vy = Math.sin(a) * T.launchSpeed;
   sim.phase = 'fly';
+  // a head start on the chain (Skating Pond, Flurrin): it still has to be kept alive
+  const head = (sim.mods.chainStart || 0) + (sim.mods.chainHead || 0);
+  if (head > 0) {
+    sim.chain = head;
+    sim.bestChain = Math.max(sim.bestChain, head);
+    sim.chainTicks = sim.chainMax;
+    sim.tier = tierOf(head);
+  }
   sim.inputs.push({ tick: sim.tick, kind: 'launch', angle: a });
   sim.events.push({ type: 'launch', x: sim.spark.x, y: sim.spark.y });
   return true;
@@ -192,7 +201,7 @@ function step(sim) {
 
   // --- cloud ledges ---
   for (const seg of lvl.segments) {
-    const impact = hitSegment(s, seg, T.ledgeRest);
+    const impact = hitSegment(s, seg, seg.kind === 'ice' ? T.iceRest : T.ledgeRest);
     if (impact > 90) sim.events.push({ type: 'ledge', x: s.x, y: s.y });
   }
 
@@ -293,9 +302,23 @@ function step(sim) {
         e.hits++;
         s.vy = -T.geyserSpeed;
         s.vx = s.vx * 0.35 + (FIELD.w / 2 - s.x) * 0.45;
-        gather(sim, T.geyserValue, e.x, e.y, 'geyser');
+        gather(sim, T.geyserValue + (m.gustBonus || 0), e.x, e.y, 'geyser');
         sim.events[sim.events.length - 1].id = e.id;
       }
+    } else if (e.kind === 'gust') {
+      // A gust of wind: not solid. While the Spark is inside it is pushed
+      // sideways, and the first couple of rides in a dive pay Glow.
+      const inside = Math.abs(s.x - e.x) < e.w / 2 && Math.abs(s.y - e.y) < e.h / 2;
+      if (inside) {
+        s.vx += e.dir * T.gustPush * STEP;
+        if (!e.inside && e.hits < T.gustCharges) {
+          e.hits++;
+          sim.gustHits++;
+          gather(sim, T.gustValue + (m.gustBonus || 0), s.x, s.y, 'gust');
+          sim.events[sim.events.length - 1].id = e.id;
+        }
+      }
+      e.inside = inside;
     } else if (e.kind === 'bubble') {
       if (e.moving) e.x = e.x0 + Math.sin(sim.tick * STEP * 1.25) * e.amp;
       const dx = s.x - e.x;
@@ -344,6 +367,7 @@ function summarize(sim) {
     motes: sim.motes,
     bumperHits: sim.bumperHits,
     cogHits: sim.cogHits,
+    gustHits: sim.gustHits,
     lit: sim.lit.slice(),
     lanternsLitNow: sim.lanternsLitNow.length,
     gotRelic: sim.gotRelic,
@@ -368,6 +392,10 @@ function previewPath(level, x, y, vx, vy, maxTicks = 150) {
     s.vy *= drag;
     s.x += s.vx * STEP;
     s.y += s.vy * STEP;
+    // wind bends the path, so the guide must show it
+    for (const e of level.ents) {
+      if (e.kind === 'gust' && Math.abs(s.x - e.x) < e.w / 2 && Math.abs(s.y - e.y) < e.h / 2) s.vx += e.dir * T.gustPush * STEP;
+    }
     if (s.x < s.r || s.x > FIELD.w - s.r || s.y < s.r || s.y > FIELD.h) break;
     let hit = false;
     for (const seg of level.segments) {

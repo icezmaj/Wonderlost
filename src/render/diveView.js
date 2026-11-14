@@ -29,7 +29,7 @@ function createDiveView() {
   let awake = 0; // eased fraction of lanterns lit
   let endGlow = 0;
   let reduced = false; // accessibility: no shake, softer flashes
-  let theme = 'mist'; // which world's hollow this is: 'mist' (Mistlewick) or 'brass' (Tocktown)
+  let theme = 'mist'; // which world's hollow this is: 'mist' (Mistlewick), 'brass' (Tocktown) or 'frost' (Hushfall)
 
   function fit(W, H) {
     geom.W = W;
@@ -67,6 +67,7 @@ function createDiveView() {
     const g = bg.getContext('2d');
     g.scale(px, px);
     if (theme === 'brass') return buildBrassBg(g, W, H, seed);
+    if (theme === 'frost') return buildFrostBg(g, W, H, seed);
     if (cover(g, 'dive_backdrop', W, H)) return;
     const sky = g.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, '#1a1550');
@@ -111,6 +112,87 @@ function createDiveView() {
     for (let i = 0; i < 26; i++) {
       g.fillStyle = `rgba(255,224,160,${0.12 + rng() * 0.25})`;
       circle(g, rng() * 360, 380 + rng() * 200, 0.7 + rng() * 0.9);
+    }
+  }
+
+  /** Inside the snow globe: a still winter night, a great snowflake, pines at the edges. */
+  function buildFrostBg(g, W, H, seed) {
+    const sky = g.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#0c1c3a');
+    sky.addColorStop(0.45, '#1f3f6e');
+    sky.addColorStop(0.8, '#3d5f8f');
+    sky.addColorStop(1, '#2a3f66');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, W, H);
+    g.translate(geom.x0, geom.y0);
+    g.scale(geom.fs, geom.fs);
+    additive(g, () => {
+      glow(g, 110, 30, 200, '#7be0a0', 0.12);
+      glow(g, 260, 10, 220, '#b9a6ff', 0.12);
+      glow(g, 180, 640, 300, '#ffb86b', 0.14);
+    });
+    // the great snowflake the hollow is laid out on
+    g.lineCap = 'round';
+    g.strokeStyle = 'rgba(214,241,251,.13)';
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+      const ex = 180 + Math.cos(a) * 158;
+      const ey = 310 + Math.sin(a) * 158;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(180, 310);
+      g.lineTo(ex, ey);
+      g.stroke();
+      g.lineWidth = 2;
+      for (const f of [0.45, 0.7]) {
+        const bx = 180 + Math.cos(a) * 158 * f;
+        const by = 310 + Math.sin(a) * 158 * f;
+        g.beginPath();
+        g.moveTo(bx + Math.cos(a + 1.05) * 26, by + Math.sin(a + 1.05) * 26);
+        g.lineTo(bx, by);
+        g.lineTo(bx + Math.cos(a - 1.05) * 26, by + Math.sin(a - 1.05) * 26);
+        g.stroke();
+      }
+    }
+    // the glass curving in at the sides
+    for (const side of [-1, 1]) {
+      const cx = side < 0 ? -322 : 682;
+      g.fillStyle = 'rgba(214,241,251,.08)';
+      circle(g, cx, 330, 350);
+      g.strokeStyle = 'rgba(214,241,251,.36)';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(cx, 330, 350, 0, Math.PI * 2);
+      g.stroke();
+    }
+    // snow-laden pines at the foot of the hollow
+    const rng = mulberry32(seed);
+    for (let i = 0; i < 7; i++) {
+      const x = i < 4 ? 8 + rng() * 70 : 282 + rng() * 70;
+      const h = 44 + rng() * 40;
+      const base = 640;
+      for (let k = 0; k < 3; k++) {
+        const w = h * (0.42 - k * 0.1);
+        const y = base - k * h * 0.3;
+        g.fillStyle = 'rgba(20,44,70,.75)';
+        g.beginPath();
+        g.moveTo(x - w, y);
+        g.lineTo(x, y - h * 0.46);
+        g.lineTo(x + w, y);
+        g.closePath();
+        g.fill();
+        g.fillStyle = 'rgba(214,241,251,.2)';
+        g.beginPath();
+        g.moveTo(x - w * 0.5, y - h * 0.23);
+        g.lineTo(x, y - h * 0.46);
+        g.lineTo(x + w * 0.5, y - h * 0.23);
+        g.closePath();
+        g.fill();
+      }
+    }
+    for (let i = 0; i < 30; i++) {
+      g.fillStyle = `rgba(255,255,255,${0.1 + rng() * 0.25})`;
+      circle(g, rng() * 360, rng() * 420, 0.6 + rng() * 0.9);
     }
   }
 
@@ -203,6 +285,11 @@ function createDiveView() {
         pop(x, y - 28, '+' + ev.value, '#f8d789', 13, 0.7);
         shake = Math.max(shake, 0.22);
         break;
+      case 'gust':
+        pulses.set(ev.id, 1);
+        fx.emit(x, y, { n: 14, color: ['#ffffff', '#cfe8ff'], speed: [60, 220], life: [0.3, 0.7], size: [2, 4], glow: false });
+        pop(x, y - 26, '+' + ev.value, '#cfe8ff', 13, 0.7);
+        break;
       case 'thud':
         pulses.set(ev.id, 0.5);
         fx.emit(x, y, { n: 5, color: '#b9b3d9', speed: [20, 70], life: [0.25, 0.5], size: [2, 3], glow: false });
@@ -291,6 +378,28 @@ function createDiveView() {
     if (s.kind === 'roof' && has('roof')) {
       // a roof is two segments meeting at a peak: draw the image once, on the rising half
       if (s.y2 < s.y1) place(g, 'roof', s.x2, s.y2 + 6.5);
+      return;
+    }
+    if (s.kind === 'ice') {
+      // an ice slide: pale, glassy, with a line of light along its top edge
+      g.strokeStyle = '#5f97bd';
+      g.lineWidth = 12;
+      g.beginPath();
+      g.moveTo(s.x1, s.y1 + 3);
+      g.lineTo(s.x2, s.y2 + 3);
+      g.stroke();
+      g.strokeStyle = '#cdeefb';
+      g.lineWidth = 9;
+      g.beginPath();
+      g.moveTo(s.x1, s.y1);
+      g.lineTo(s.x2, s.y2);
+      g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,.9)';
+      g.lineWidth = 1.8;
+      g.beginPath();
+      g.moveTo(s.x1 + (s.x2 - s.x1) * 0.08, s.y1 + (s.y2 - s.y1) * 0.08 - 2.4);
+      g.lineTo(s.x1 + (s.x2 - s.x1) * 0.7, s.y1 + (s.y2 - s.y1) * 0.7 - 2.4);
+      g.stroke();
       return;
     }
     if (s.kind !== 'roof') {
@@ -389,7 +498,7 @@ function createDiveView() {
         for (let k = 0; k < T.bumperCharges - e.hits; k++) circle(g, e.x - 5 + k * 5, e.y + 4, 1.4);
       } else if (e.kind === 'lantern') {
         const lit = sim.lit[e.li];
-        if (theme !== 'brass' && place(g, lit ? 'lantern_on' : 'lantern_off', e.x, e.y - 1)) continue;
+        if (theme === 'mist' && place(g, lit ? 'lantern_on' : 'lantern_off', e.x, e.y - 1)) continue;
         // code-drawn lamp, enlarged to fill its hit area
         g.save();
         g.translate(e.x, e.y);
@@ -487,7 +596,7 @@ function createDiveView() {
     // the spout the Spark drops from
     const L = lvl.launcher;
     if (place(g, 'dive_spout', L.x, L.y - 48)) return;
-    g.fillStyle = theme === 'brass' ? '#a8742a' : '#d98a9e';
+    g.fillStyle = theme === 'brass' ? '#a8742a' : theme === 'frost' ? '#6f9cbb' : '#d98a9e';
     g.beginPath();
     g.moveTo(L.x - 30, -30);
     g.lineTo(L.x + 30, -30);
@@ -495,7 +604,7 @@ function createDiveView() {
     g.lineTo(L.x - 15, L.y - 10);
     g.closePath();
     g.fill();
-    g.fillStyle = theme === 'brass' ? '#e7ae4a' : '#f7c1cb';
+    g.fillStyle = theme === 'brass' ? '#e7ae4a' : theme === 'frost' ? '#cfe6f2' : '#f7c1cb';
     g.beginPath();
     g.moveTo(L.x - 30, -30);
     g.lineTo(L.x + 12, -30);
@@ -549,7 +658,7 @@ function createDiveView() {
       else if (e.kind === 'bumper' || e.kind === 'cog') hole(e.x, e.y, 42);
       else if (e.kind === 'geyser') hole(e.x, e.y - 4, 44);
     }
-    for (const s of sim.level.segments) hole((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2, 48);
+    for (const s of sim.level.segments) hole((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2, s.kind === 'ice' ? 62 : 48);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(dark, 0, 0, dw * q, dh * q);
   }
@@ -577,12 +686,27 @@ function createDiveView() {
           glow(g, e.x, by, 3.4, '#ffffff', 1);
         } else if (e.kind === 'lantern' && sim.lit[e.li]) {
           const p = pulses.get('L' + Math.round(e.x) + '_' + Math.round(e.y)) || 0;
-          if (theme !== 'brass' && has('lantern_on_glow')) place(g, 'lantern_on', e.x, e.y - 1, { glow: true, scale: 1 + p * 0.5, alpha: 0.7 + p * 0.3 + Math.sin(t * 3 + e.id) * 0.06 });
+          if (theme === 'mist' && has('lantern_on_glow')) place(g, 'lantern_on', e.x, e.y - 1, { glow: true, scale: 1 + p * 0.5, alpha: 0.7 + p * 0.3 + Math.sin(t * 3 + e.id) * 0.06 });
           else glow(g, e.x, e.y, 44 + p * 40 + Math.sin(t * 3 + e.id) * 3, '#ffcf5c', 0.6 + p * 0.4);
         } else if (e.kind === 'lantern') {
           glow(g, e.x, e.y, 26, '#b9a6ff', 0.3 + Math.sin(t * 2 + e.id) * 0.12);
         } else if (e.kind === 'relic') {
           glow(g, e.x, e.y, 24 + Math.sin(t * 3) * 3, '#ffcf5c', 0.5);
+        } else if (e.kind === 'gust') {
+          // a gust of wind: streaks of light racing the way it blows
+          const live = e.hits < T.gustCharges;
+          const a = (live ? 0.34 : 0.14) + (pulses.get(e.id) || 0) * 0.4;
+          for (let k = 0; k < 7; k++) {
+            const u = (((t * 0.9 * e.dir + k / 7) % 1) + 1) % 1;
+            const gx = e.x - e.w / 2 + u * e.w;
+            const gyy = e.y + ((k * 37) % 44) - 22;
+            const fade = Math.sin(u * Math.PI);
+            g.save();
+            g.translate(gx, gyy);
+            g.scale(5, 1);
+            glow(g, 0, 0, 5, '#d6f1fb', a * fade);
+            g.restore();
+          }
         } else if (e.kind === 'cog' && pulses.get(e.id)) {
           glow(g, e.x, e.y, e.r * 2.8, '#f5b942', pulses.get(e.id) * 0.8);
         } else if (e.kind === 'bumper' && pulses.get(e.id)) {
@@ -620,6 +744,28 @@ function createDiveView() {
         }
       }
     });
+
+    // which way each gust blows, drawn plainly so it reads at a glance
+    for (const e of sim.ents) {
+      if (e.kind !== 'gust') continue;
+      // the stream itself, faintly, so its edges are clear
+      g.fillStyle = `rgba(214,241,251,${e.hits < T.gustCharges ? 0.08 : 0.04})`;
+      roundRect(g, e.x - e.w / 2, e.y - e.h / 2, e.w, e.h, e.h / 2);
+      g.fill();
+      g.strokeStyle = `rgba(214,241,251,${e.hits < T.gustCharges ? 0.75 : 0.3})`;
+      g.lineWidth = 2;
+      g.lineCap = 'round';
+      g.lineJoin = 'round';
+      for (let k = 0; k < 3; k++) {
+        const cx = e.x + (k - 1) * 46 + ((t * 26 * e.dir) % 46);
+        if (Math.abs(cx - e.x) > e.w / 2 - 10) continue;
+        g.beginPath();
+        g.moveTo(cx - 5 * e.dir, e.y - 7);
+        g.lineTo(cx + 4 * e.dir, e.y);
+        g.lineTo(cx - 5 * e.dir, e.y + 7);
+        g.stroke();
+      }
+    }
 
     // finished art for the small bright things sits on top of their light
     if (has('mote')) {

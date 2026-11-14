@@ -99,31 +99,34 @@ const path = require('node:path');
     }
     console.log('Returning player with upgrades: game keeps animating (with art and ?classic)');
 
-    // The second world: a player with 12 Mistlewick restorations can travel to
-    // Tocktown, dive into a clock-face hollow, and come back.
-    {
+    // The later worlds: with enough restorations a player can travel to each,
+    // dive into its own kind of hollow (cogs, then ice slides and gusts), and come back.
+    for (const [worldId, upgrades] of [
+      ['tocktown', { teapot: 3, hearth: 3, cottages: 3, lanterns: 3, gearworks: 2 }],
+      ['hushfall', { teapot: 3, hearth: 3, cottages: 3, lanterns: 3, mainspring: 3, clocktower: 3, gearworks: 3, lamprow: 3, weathervane: 3 }]
+    ]) {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const tock = await ctx.newPage();
       tock.on('pageerror', error => errors.push('tocktown: ' + (error.stack || error)));
       await tock.goto('file://' + path.resolve(__dirname, '../docs/index.html'), { waitUntil: 'load' });
       await tock.waitForFunction(() => window.__wonderlost?.app, null, { timeout: 15000 });
-      await tock.evaluate(() => {
+      await tock.evaluate((upgrades) => {
         const a = window.__wonderlost.app;
         a.state.stats.dives = 30;
         a.state.flags = { rekindle: true, built: true, homeCoach: true };
-        a.state.upgrades = { teapot: 3, hearth: 3, cottages: 3, lanterns: 3, gearworks: 2 };
+        a.state.upgrades = upgrades;
         a.save();
-      });
+      }, upgrades);
       await tock.reload({ waitUntil: 'load' });
       await tock.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
       await tock.locator('#b-begin').click();
       await tock.waitForFunction(() => window.__wonderlost.app.screen === 'home', null, { timeout: 15000 });
       await tock.waitForFunction(() => !document.getElementById('wipe').classList.contains('on'), null, { timeout: 5000 });
-      await tock.evaluate(() => window.__wonderlost.app.travel('tocktown'));
-      await tock.waitForFunction(() => window.__wonderlost.app.state.worldId === 'tocktown', null, { timeout: 5000 });
+      await tock.evaluate((w) => window.__wonderlost.app.travel(w), worldId);
+      await tock.waitForFunction((w) => window.__wonderlost.app.state.worldId === w, worldId, { timeout: 5000 });
       await tock.waitForFunction(() => !document.getElementById('wipe').classList.contains('on'), null, { timeout: 5000 });
       await tock.waitForTimeout(600);
-      await tock.screenshot({ path: 'wonderlost-tocktown.png' });
+      await tock.screenshot({ path: `wonderlost-${worldId}.png` });
       await tock.locator('#b-dive').click();
       await tock.waitForFunction(() => window.__wonderlost.app.screen === 'dive', null, { timeout: 10000 });
       await tock.waitForTimeout(900);
@@ -133,14 +136,14 @@ const path = require('node:path');
       await tock.mouse.move(box2.x + box2.width * 0.42, box2.y + box2.height * 0.6, { steps: 8 });
       await tock.mouse.up();
       await tock.waitForTimeout(1500);
-      await tock.screenshot({ path: 'wonderlost-tocktown-dive.png' });
+      await tock.screenshot({ path: `wonderlost-${worldId}-dive.png` });
       const t = await tock.evaluate(() => ({ world: window.__wonderlost.app.state.worldId, hollow: !!window.__wonderlost.app.state.hollow, errors: window.__wonderlost.frameErrors() }));
-      if (t.world !== 'tocktown' || !t.hollow || t.errors) throw new Error('Tocktown dive failed ' + JSON.stringify(t));
+      if (t.world !== worldId || !t.hollow || t.errors) throw new Error(worldId + ' dive failed ' + JSON.stringify(t));
       await tock.evaluate(() => window.__wonderlost.app.goHome());
       await tock.evaluate(() => window.__wonderlost.app.travel('mistlewick'));
       await tock.waitForFunction(() => window.__wonderlost.app.state.worldId === 'mistlewick', null, { timeout: 5000 });
       await ctx.close();
-      console.log('Tocktown: travel, clock-face dive and return all work');
+      console.log(worldId + ': travel, dive and return all work');
     }
 
     // Optional: also check the deployed site. Off by default, because on a push
@@ -176,7 +179,7 @@ const path = require('node:path');
       } finally { await classic.close(); }
     }
     if (errors.length) throw new Error('Browser errors:\\n' + errors.join('\\n'));
-    console.log('PASS: title, dive, aim, home, Restore, second dive, returning player and Tocktown.');
+    console.log('PASS: title, dive, aim, home, Restore, second dive, returning player, Tocktown and Hushfall.');
   } finally {
     await browser.close();
   }

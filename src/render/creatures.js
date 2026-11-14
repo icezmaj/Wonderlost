@@ -24,6 +24,9 @@ function drawCreature(ctx, id, x, y, s, t, opts = {}) {
   else if (id === 'tocklet') tocklet(ctx, t, blink, opts);
   else if (id === 'springle') springle(ctx, t, blink, opts);
   else if (id === 'hourmoth') hourmoth(ctx, t, blink, opts);
+  else if (id === 'flurrin') flurrin(ctx, t, blink, opts);
+  else if (id === 'mufflet') mufflet(ctx, t, blink, opts);
+  else if (id === 'auroryn') auroryn(ctx, t, blink, opts);
   ctx.restore();
 }
 
@@ -310,6 +313,175 @@ function hourmoth(ctx, t, blink, o) {
   cheeks(ctx, 3.3, -10.2 + bob, 1.2);
 }
 
+// Flurrin: a snowball in a scarf. It rolls, so its speckles turn.
+function flurrin(ctx, t, blink, o) {
+  const bob = Math.abs(Math.sin(t * 2.6)) * 1.2;
+  const roll = o.asleep ? 0 : t * 1.6;
+  ctx.fillStyle = 'rgba(120,150,190,.25)';
+  ellipse(ctx, 0, 11, 9, 2);
+  ctx.fillStyle = '#c9dcee';
+  circle(ctx, 0, 2.2 - bob, 10.4);
+  ctx.fillStyle = '#ffffff';
+  circle(ctx, -0.4, 1.2 - bob, 10);
+  // packed-snow speckles that travel round as it rolls
+  ctx.fillStyle = 'rgba(160,190,220,.55)';
+  for (let i = 0; i < 4; i++) {
+    const a = roll + i * 1.57;
+    const sx = Math.cos(a) * 7;
+    if (Math.sin(a) > -0.2) circle(ctx, sx, 1.2 - bob + Math.sin(a) * 6.4, 1.1);
+  }
+  // scarf
+  ctx.fillStyle = '#f08a8a';
+  roundRect(ctx, -8.6, 5.4 - bob, 17.2, 3.8, 1.9);
+  ctx.fill();
+  ctx.fillStyle = '#c9647a';
+  roundRect(ctx, 4.4, 6.4 - bob, 3.6, 7.6 + Math.sin(t * 3) * 0.8, 1.6);
+  ctx.fill();
+  ctx.fillStyle = '#fff4dc';
+  ctx.fillRect(-5, 5.4 - bob, 1.6, 3.8);
+  ctx.fillRect(0.4, 5.4 - bob, 1.6, 3.8);
+  eyes(ctx, 3.6, -1 - bob, 1.6, blink);
+  cheeks(ctx, 6.4, 1.8 - bob, 1.9);
+  ctx.fillStyle = '#f5a24a';
+  ctx.beginPath();
+  ctx.moveTo(-0.9, 0.4 - bob);
+  ctx.lineTo(3.6, 1.6 - bob);
+  ctx.lineTo(-0.9, 2.6 - bob);
+  ctx.closePath();
+  ctx.fill();
+  smile(ctx, 2.4 - bob, 1.5, o.happy);
+}
+
+// Mufflet: a knitted fox kit, one mitten short.
+function mufflet(ctx, t, blink, o) {
+  const bob = Math.sin(t * 3) * 0.6;
+  const wag = Math.sin(t * 4) * 0.25;
+  // tail
+  ctx.save();
+  ctx.translate(-7, 6 + bob);
+  ctx.rotate(-0.7 + wag);
+  ctx.fillStyle = '#e8873a';
+  ellipse(ctx, -5, 0, 7.4, 3.8);
+  ctx.fillStyle = '#fff6e2';
+  ellipse(ctx, -9.4, 0, 3.4, 2.8);
+  ctx.restore();
+  // feet: one mitten, one bare paw
+  ctx.fillStyle = '#7fd0c4';
+  ellipse(ctx, -3.6, 10.6, 2.9, 1.8);
+  ctx.fillStyle = '#b9602a';
+  ellipse(ctx, 4.2, 10.6, 2.6, 1.6);
+  // ears
+  ctx.fillStyle = '#e8873a';
+  ctx.beginPath();
+  ctx.moveTo(-8.4, -3 + bob);
+  ctx.lineTo(-6, -12.4 + bob);
+  ctx.lineTo(-1.4, -5.4 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(8.4, -3 + bob);
+  ctx.lineTo(6.4, -12.6 + bob);
+  ctx.lineTo(1.4, -5.4 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#7a4a5a';
+  ctx.beginPath();
+  ctx.moveTo(-6.6, -5 + bob);
+  ctx.lineTo(-5.8, -9.8 + bob);
+  ctx.lineTo(-3.4, -5.8 + bob);
+  ctx.closePath();
+  ctx.fill();
+  // body and face
+  ctx.fillStyle = '#c96a2a';
+  ellipse(ctx, 0, 3.6 + bob, 9.4, 8.2);
+  ctx.fillStyle = '#e8873a';
+  ellipse(ctx, 0, 2.4 + bob, 9, 7.8);
+  ctx.fillStyle = '#fff6e2';
+  ctx.beginPath();
+  ctx.moveTo(-6.6, 3 + bob);
+  ctx.quadraticCurveTo(0, -1.4 + bob, 6.6, 3 + bob);
+  ctx.quadraticCurveTo(0, 12 + bob, -6.6, 3 + bob);
+  ctx.fill();
+  // knit stitches
+  ctx.strokeStyle = 'rgba(122,74,42,.35)';
+  ctx.lineWidth = 0.7;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * 4.4 - 1, -3.4 + bob);
+    ctx.lineTo(i * 4.4, -1.8 + bob);
+    ctx.lineTo(i * 4.4 + 1, -3.4 + bob);
+    ctx.stroke();
+  }
+  eyes(ctx, 3.6, 0.4 + bob, 1.5, blink);
+  cheeks(ctx, 6.4, 3 + bob, 1.7);
+  ctx.fillStyle = '#3a2a3a';
+  circle(ctx, 0, 3.4 + bob, 1.2);
+  smile(ctx, 3.8 + bob, 1.4, o.happy);
+}
+
+// Auroryn: a tiny reindeer with the northern lights in its antlers.
+function auroryn(ctx, t, blink, o) {
+  const bob = Math.sin(t * 2.6) * 1.1;
+  const trot = o.asleep ? 0 : Math.sin(t * 7) * 1.4;
+  // legs
+  ctx.strokeStyle = '#8a6a5a';
+  ctx.lineWidth = 1.7;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-5, 6 + bob);
+  ctx.lineTo(-6 + trot, 11.4);
+  ctx.moveTo(-1.4, 6.6 + bob);
+  ctx.lineTo(-1 - trot, 11.4);
+  ctx.moveTo(3, 6.6 + bob);
+  ctx.lineTo(2.6 + trot, 11.4);
+  ctx.moveTo(6.2, 6 + bob);
+  ctx.lineTo(7.2 - trot, 11.4);
+  ctx.stroke();
+  // body
+  ctx.fillStyle = '#c9a98a';
+  ellipse(ctx, 0.4, 3.4 + bob, 8.6, 5.4);
+  ctx.fillStyle = '#f6e3c8';
+  ellipse(ctx, 0.4, 2.6 + bob, 8.2, 5);
+  ctx.fillStyle = '#fff6e2';
+  circle(ctx, -7.6, 2.4 + bob, 2.2);
+  // antlers: branching, each tip a point of light
+  const tips = [[2.6, -15, '#7be0a0'], [6.4, -14.4, '#7fe3d8'], [9.6, -11.6, '#b9a6ff'], [0.4, -12, '#b9a6ff']];
+  ctx.strokeStyle = '#8a6a5a';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(4.4, -6.4 + bob);
+  ctx.lineTo(3.4, -10 + bob);
+  ctx.lineTo(2.6, -14.4 + bob);
+  ctx.moveTo(3.4, -10 + bob);
+  ctx.lineTo(0.4, -11.6 + bob);
+  ctx.moveTo(7.2, -6 + bob);
+  ctx.lineTo(7.6, -10 + bob);
+  ctx.lineTo(6.4, -13.8 + bob);
+  ctx.moveTo(7.6, -10 + bob);
+  ctx.lineTo(9.6, -11.2 + bob);
+  ctx.stroke();
+  tips.forEach(([x, y, col], i) => {
+    ctx.fillStyle = col;
+    ctx.globalAlpha = o.asleep ? 0.5 : 0.7 + Math.sin(t * 3 + i * 1.4) * 0.3;
+    circle(ctx, x, y + bob, 1.7);
+  });
+  ctx.globalAlpha = 1;
+  // head
+  ctx.fillStyle = '#c9a98a';
+  circle(ctx, 6, -2.4 + bob, 5.6);
+  ctx.fillStyle = '#f6e3c8';
+  circle(ctx, 6, -3 + bob, 5.2);
+  ctx.fillStyle = '#c9a98a';
+  ellipse(ctx, 1.2, -5.6 + bob, 2.4, 1.3);
+  ctx.save();
+  ctx.translate(6, 0);
+  eyes(ctx, 2.2, -3.6 + bob, 1.3, blink);
+  cheeks(ctx, 3.8, -1.4 + bob, 1.3);
+  ctx.restore();
+  ctx.fillStyle = '#f08a8a';
+  circle(ctx, 10.4, -1.6 + bob, 1.3);
+}
+
 /** "Zzz" above a sleeping creature. */
 function drawZzz(ctx, x, y, t) {
   ctx.fillStyle = 'rgba(255,255,255,.85)';
@@ -521,6 +693,101 @@ function drawArtifact(ctx, id, x, y, s, silhouette = false) {
     ctx.beginPath();
     ctx.arc(-2, -2, 5.6, 1.1 * Math.PI, 1.5 * Math.PI);
     ctx.stroke();
+  } else if (id === 'mitten') {
+    ctx.rotate(-0.2);
+    ctx.fillStyle = c('#7fd0c4');
+    roundRect(ctx, -7, -9, 13, 17, 6);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(8, -1, 4, 6, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = c('#fff4dc');
+    roundRect(ctx, -8, 7, 15, 6, 2.5);
+    ctx.fill();
+    ctx.fillStyle = c('#f08a8a');
+    circle(ctx, -0.5, -2, 2.4);
+  } else if (id === 'sleighbell') {
+    ctx.strokeStyle = c('#b9566c');
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(0, -8, 5, Math.PI, 0);
+    ctx.stroke();
+    ctx.fillStyle = c('#e7ae4a');
+    circle(ctx, 0, 2, 10);
+    ctx.fillStyle = c('#f8d789');
+    circle(ctx, -2.4, -0.6, 6);
+    ctx.fillStyle = c('#7a4a2a');
+    roundRect(ctx, -6, 4, 12, 2.4, 1.2);
+    ctx.fill();
+    circle(ctx, 0, 6.4, 2);
+  } else if (id === 'cocoa') {
+    ctx.fillStyle = c('#b9566c');
+    roundRect(ctx, -8, -8, 16, 20, 3);
+    ctx.fill();
+    ctx.fillStyle = c('#f6e3b4');
+    roundRect(ctx, -8, -3, 16, 9, 1);
+    ctx.fill();
+    ctx.fillStyle = c('#7a4a2a');
+    circle(ctx, 0, 1.5, 3);
+    ctx.fillStyle = c('#e7ae4a');
+    roundRect(ctx, -9, -11, 18, 4.4, 2);
+    ctx.fill();
+  } else if (id === 'skate') {
+    ctx.fillStyle = c('#fff4dc');
+    ctx.beginPath();
+    ctx.moveTo(-8, -11);
+    ctx.lineTo(-1, -11);
+    ctx.lineTo(0, -1);
+    ctx.quadraticCurveTo(10, -1, 10, 5);
+    ctx.lineTo(-8, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = c('#f08a8a');
+    roundRect(ctx, -9, -13, 9, 4, 2);
+    ctx.fill();
+    ctx.strokeStyle = c('#cfd8ea');
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(-10, 10);
+    ctx.lineTo(9, 10);
+    ctx.quadraticCurveTo(13, 10, 13, 6.6);
+    ctx.moveTo(-5, 5);
+    ctx.lineTo(-5, 10);
+    ctx.moveTo(6, 5);
+    ctx.lineTo(6, 10);
+    ctx.stroke();
+  } else if (id === 'glassflake') {
+    ctx.strokeStyle = c('#bfe9f2');
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const ex = Math.cos(a) * 12;
+      const ey = Math.sin(a) * 12;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(ex, ey);
+      ctx.moveTo(ex * 0.6 + Math.cos(a + 1.2) * 3.6, ey * 0.6 + Math.sin(a + 1.2) * 3.6);
+      ctx.lineTo(ex * 0.6, ey * 0.6);
+      ctx.lineTo(ex * 0.6 + Math.cos(a - 1.2) * 3.6, ey * 0.6 + Math.sin(a - 1.2) * 3.6);
+      ctx.stroke();
+    }
+    ctx.fillStyle = c('#ffffff');
+    circle(ctx, 0, 0, 2.4);
+  } else if (id === 'candle') {
+    ctx.fillStyle = c('#a8742a');
+    roundRect(ctx, -9, 8, 18, 4, 2);
+    ctx.fill();
+    ctx.fillStyle = c('#fff4dc');
+    roundRect(ctx, -4, -4, 8, 13, 2);
+    ctx.fill();
+    ctx.fillStyle = c('#f5b942');
+    ctx.beginPath();
+    ctx.moveTo(0, -13);
+    ctx.quadraticCurveTo(5, -7, 0, -3.6);
+    ctx.quadraticCurveTo(-5, -7, 0, -13);
+    ctx.fill();
+    ctx.fillStyle = c('#fff3c4');
+    circle(ctx, 0, -6.6, 1.6);
   }
   ctx.restore();
 }

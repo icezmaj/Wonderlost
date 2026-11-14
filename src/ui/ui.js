@@ -213,7 +213,7 @@ function createUi(app) {
     chain.querySelector('em').textContent = sim.tier > 1 ? '×' + sim.tier : '';
     chain.className = 'chain' + (sim.chain > 0 ? ' live t' + sim.tier : '');
     $('d-lanterns').innerHTML = sim.lit.map((on) => `<i class="lp${on ? ' on' : ''}"></i>`).join('');
-    const total = T.baseRekindles + (sim.mods.extraRekindles || 0);
+    const total = T.baseRekindles + (sim.mods.extraRekindles || 0) + (sim.mods.rekindleUp || 0);
     let rk = '';
     for (let i = 0; i < total; i++) rk += `<i class="rp${i < sim.rekindles ? ' on' : ''}">${ICON.spark}</i>`;
     $('d-rekindles').innerHTML = rk;

@@ -20,9 +20,14 @@ Mobile game
   in Mistlewick. Tap the watch on the desk to travel there, and the teapot to
   come back. Its hollows are laid out like a clock face and add spinning cogs.
 
+- **Hushfall** (Case 003, the forgotten snow globe) opens after 12 restorations
+  in Tocktown. Its hollows are a snowflake of ice slides, with gusts of wind,
+  and snow only starts to fall in the globe as the city is restored.
+
 World content is data in `src/config/worlds.js` (upgrades, creatures, artifacts)
 and `src/config/objectives.js` (case files). Tocktown's home scene is drawn in
-`src/render/tocktownScene.js`; it has no painted art yet.
+`src/render/tocktownScene.js` and Hushfall's in `src/render/hushfallScene.js`;
+neither has painted art yet.
 
 ## Build
 

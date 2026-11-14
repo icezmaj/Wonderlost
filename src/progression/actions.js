@@ -218,6 +218,7 @@ function settleDive(s, result, now, practice = false) {
   bumpWorld(s, 'dives');
   bumpWorld(s, 'lanternsLit', result.lanternsLitNow);
   if (result.cogHits) bumpWorld(s, 'cogHits', result.cogHits);
+  if (result.gustHits) bumpWorld(s, 'gustRides', result.gustHits);
   if (result.bestChain > st.bestChain) st.bestChain = result.bestChain;
   if (total > st.bestDive) st.bestDive = total;
 

@@ -3,11 +3,13 @@
 //
 // Upgrade `fx` keys are summed across purchased levels into dive/economy modifiers:
 //   sparkCap, homeMult, moteBonus, lanternValue, hollowBonus, bumpers,
-//   bumperValue, geysers, chainWindow (seconds), cogs, hearthGrow (fraction)
+//   bumperValue, geysers, chainWindow (seconds), cogs, hearthGrow (fraction),
+//   gusts, chainStart, rekindleUp
 // Upgrades from every world add up: what you restored in one world still
 // helps in the next.
 // Creature `mods` apply only while that creature is the active companion:
-//   extraRekindles, magnet, hearthScale, chainBonus (seconds), bounceBonus
+//   extraRekindles, magnet, hearthScale, chainBonus (seconds), bounceBonus,
+//   chainHead, gustBonus
 //
 // `unlock` gates a world behind progress in an earlier one. `dive` picks the
 // look and layout of that world's hollows (see sim/level.js, render/diveView.js).
@@ -292,14 +294,154 @@ const WORLDS = {
         { id: 'lens', name: "Watchmaker's Lens", lore: 'Makes small things matter.' }
       ]
     }
+  },
+
+  hushfall: {
+    id: 'hushfall',
+    name: 'Hushfall',
+    caseNo: '003',
+    object: 'A forgotten snow globe',
+    tagline: 'A winter city waiting for its first snowfall in years.',
+    titleLine: 'Nobody has shaken it in years.',
+    homeWord: 'City',
+    unlock: { world: 'tocktown', levels: 12 },
+    dive: { theme: 'frost', layout: 'flake', into: 'the snow globe' },
+
+    upgrades: [
+      {
+        id: 'dome',
+        name: 'Glass Dome',
+        blurb: 'Polish the dusty glass so the city can see the sky.',
+        unlockAt: 0,
+        levels: [
+          { cost: 700, fx: { sparkCap: 1 }, note: '+1 Spark capacity' },
+          { cost: 1800, fx: { sparkCap: 1 }, note: '+1 Spark capacity' },
+          { cost: 3600, fx: { sparkCap: 1 }, note: '+1 Spark capacity' }
+        ]
+      },
+      {
+        id: 'weathervane',
+        name: 'Weathervane',
+        blurb: 'Raise the vane. A gust carries your Spark sideways.',
+        unlockAt: 1,
+        levels: [
+          { cost: 900, fx: { gusts: 1 }, note: '+1 gust of wind in every Hushfall hollow' },
+          { cost: 2200, fx: { gusts: 1 }, note: '+1 gust of wind in every Hushfall hollow' },
+          { cost: 4200, fx: { gusts: 1 }, note: '+1 gust of wind in every Hushfall hollow' }
+        ]
+      },
+      {
+        id: 'chimneys',
+        name: 'Chimney Row',
+        blurb: 'Light the hearths along the row, one house at a time.',
+        unlockAt: 1,
+        levels: [
+          { cost: 1000, fx: { homeMult: 0.25 }, note: 'Homecoming multiplier +0.25' },
+          { cost: 2400, fx: { homeMult: 0.25 }, note: 'Homecoming multiplier +0.25' },
+          { cost: 4600, fx: { homeMult: 0.5 }, note: 'Homecoming multiplier +0.5' }
+        ]
+      },
+      {
+        id: 'skaters',
+        name: 'Skating Pond',
+        blurb: 'Sweep the pond. A good glide starts before you push off.',
+        unlockAt: 3,
+        levels: [
+          { cost: 1300, fx: { chainStart: 2 }, note: 'Every dive starts with a chain of 2' },
+          { cost: 2800, fx: { chainStart: 2 }, note: 'Every dive starts with a chain of 4' },
+          { cost: 5200, fx: { chainStart: 2 }, note: 'Every dive starts with a chain of 6' }
+        ]
+      },
+      {
+        id: 'snowlamps',
+        name: 'Snow Lanterns',
+        blurb: 'Set lanterns in the drifts to guide the first flakes down.',
+        unlockAt: 3,
+        levels: [
+          { cost: 1500, fx: { lanternValue: 5, hollowBonus: 20 }, note: 'Lanterns and awakenings give more Glow' },
+          { cost: 3200, fx: { lanternValue: 5, hollowBonus: 20 }, note: 'Lanterns and awakenings give more Glow' },
+          { cost: 5800, fx: { lanternValue: 6, hollowBonus: 30 }, note: 'Lanterns and awakenings give more Glow' }
+        ]
+      },
+      {
+        id: 'bakery',
+        name: 'Midwinter Bakery',
+        blurb: 'Fire the ovens. The whole street smells of cinnamon.',
+        unlockAt: 5,
+        levels: [
+          { cost: 1800, fx: { moteBonus: 0.15 }, note: '+15% motes in every hollow' },
+          { cost: 3800, fx: { moteBonus: 0.15 }, note: '+30% motes in every hollow' },
+          { cost: 7000, fx: { rekindleUp: 1 }, note: '+1 Rekindle on every dive' }
+        ]
+      }
+    ],
+
+    creatures: [
+      {
+        id: 'flurrin',
+        name: 'Flurrin',
+        rarity: 'Common',
+        persona: 'A snowball in a scarf that rolls everywhere and arrives a little bigger.',
+        arrives: { always: true, hint: 'Asleep in a bubble in the first Hushfall hollow.' },
+        chance: 1,
+        ability: { name: 'Head Start', text: 'Every dive starts with a chain of 3', mods: { chainHead: 3 } },
+        notes: [
+          'Has never once taken the stairs.',
+          'Believes it invented downhill.',
+          'Keeps its scarf on in summer, in case summer is a trick.'
+        ]
+      },
+      {
+        id: 'mufflet',
+        name: 'Mufflet',
+        rarity: 'Uncommon',
+        persona: 'A knitted fox kit, forever one mitten short.',
+        arrives: { upgrade: 'weathervane', level: 1, hint: 'Arrives once the Weathervane turns again.' },
+        chance: 0.6,
+        ability: { name: 'Tailwind', text: 'Gusts and steam geysers give +4 Glow', mods: { gustBonus: 4 } },
+        notes: [
+          'Can tell which way the wind blows by which ear is colder.',
+          'Has a drawer of single mittens. None of them match.',
+          'Curls up in the bakery window until someone notices.'
+        ]
+      },
+      {
+        id: 'auroryn',
+        name: 'Auroryn',
+        rarity: 'Rare',
+        persona: 'A tiny reindeer with the northern lights caught in its antlers.',
+        arrives: { upgrade: 'snowlamps', level: 1, hint: 'Arrives once the Snow Lanterns are lit.' },
+        chance: 0.35,
+        moving: true,
+        ability: { name: 'Northern Light', text: '+1 Rekindle, and nearby motes drift toward your Spark', mods: { extraRekindles: 1, magnet: 40 } },
+        notes: [
+          'Paces back and forth in its bubble, practising take-off.',
+          'Leaves hoofprints that glow for exactly one night.',
+          'Only lands where the snow has not been walked on yet.'
+        ]
+      }
+    ],
+
+    artifactSet: {
+      id: 'first_snow',
+      name: 'Keepsakes of the First Snow',
+      reward: { glow: 1200, cosmetic: 'trail_aurora', label: 'Aurora trail for your Spark + northern lights over Hushfall' },
+      items: [
+        { id: 'mitten', name: 'Lost Mitten', lore: 'Its pair is still looking for it.' },
+        { id: 'sleighbell', name: 'Sleigh Bell', lore: 'Rings once for every flake that lands.' },
+        { id: 'cocoa', name: 'Cocoa Tin', lore: 'Never empty. Nobody knows why.' },
+        { id: 'skate', name: 'Silver Skate', lore: 'Draws a perfect figure eight on its own.' },
+        { id: 'glassflake', name: 'Glass Snowflake', lore: 'The first one. Somebody kept it.' },
+        { id: 'candle', name: 'Window Candle', lore: 'Lit so the snow could find its way home.' }
+      ]
+    }
   }
 };
 
-const WORLD_ORDER = ['mistlewick', 'tocktown'];
+const WORLD_ORDER = ['mistlewick', 'tocktown', 'hushfall'];
 
 // PLACEHOLDER: later worlds exist only as teasers in this slice.
 const COMING_SOON = [
-  { name: 'Hushfall', object: 'A forgotten snow globe', tagline: 'A winter city waiting for its first snowfall in years.' },
   { name: 'Neon Reverie', object: 'An old radio', tagline: 'A musical universe humming between two stations.' }
 ];
 

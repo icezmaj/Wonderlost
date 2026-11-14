@@ -307,9 +307,10 @@ function createSheets(app, { toast, refresh, root }) {
 
   function completeHtml() {
     const world = worldOf(app.state);
-    const lead = world.id === 'tocktown'
-      ? 'The mainspring is wound, the tower keeps the hour, and the town is ticking again.'
-      : 'Every crack is sealed with gold, the lanterns are lit, and the village is home again.';
+    const lead = {
+      tocktown: 'The mainspring is wound, the tower keeps the hour, and the town is ticking again.',
+      hushfall: 'The glass is clear, every hearth is lit, and the first snow is falling at last.'
+    }[world.id] || 'Every crack is sealed with gold, the lanterns are lit, and the village is home again.';
     return `
       ${head('Case ' + world.caseNo + ' closed', world.name + ' is awake')}
       <div class="sh-body">

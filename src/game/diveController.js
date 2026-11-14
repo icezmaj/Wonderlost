@@ -37,6 +37,14 @@ function createDiveController(app) {
       s.flags.cogs = true;
       hint = 'New: spinning cogs fling your Spark the way they turn.';
     }
+    if (!hint && !s.flags.ice && sim.level.segments.some((g) => g.kind === 'ice')) {
+      s.flags.ice = true;
+      hint = 'New: ice slides. Your Spark glides along them instead of bouncing.';
+    }
+    if (!hint && !s.flags.gusts && sim.ents.some((e) => e.kind === 'gust')) {
+      s.flags.gusts = true;
+      hint = 'New: gusts of wind push your Spark sideways. The aim guide shows the bend.';
+    }
     app.ui.hint(hint);
     return true;
   }
@@ -62,6 +70,7 @@ function createDiveController(app) {
         sfx.wall();
         break;
       case 'geyser':
+      case 'gust':
         sfx.geyser();
         break;
       case 'creature': {

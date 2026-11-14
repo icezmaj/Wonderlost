@@ -78,7 +78,10 @@ function modsOf(s) {
     geysers: 0,
     chainWindow: 0,
     cogs: 0,
-    hearthGrow: 0
+    hearthGrow: 0,
+    gusts: 0,
+    chainStart: 0,
+    rekindleUp: 0
   };
   // restoration is permanent: every world's upgrades count, wherever you dive
   for (const id of WORLD_ORDER) {

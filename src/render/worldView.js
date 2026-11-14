@@ -12,6 +12,19 @@ import { has, place, slot, cover, band, assetVersion } from './assets.js';
 import { upgradeLevel, restoration, worldOf, isUnlocked, setDone } from '../progression/state.js';
 import { WORLDS, WORLD_ORDER } from '../config/worlds.js';
 import { TOCK_ANCHOR, drawWatch, drawWatchLive, drawTown, drawTownLive } from './tocktownScene.js';
+import { HUSH_ANCHOR, drawGlobe, drawCity, drawCityLive, drawGlassOver } from './hushfallScene.js';
+
+// Worlds after Mistlewick are drawn by their own scene module. Each gives:
+//   base(g, st)            static, behind everything (the object on the table)
+//   town(g, st) -> lamps   static buildings; returns lamp positions that glow
+//   back(ctx, st, t, p)    per frame, behind the buildings
+//   front(ctx, st, t, lamps) per frame, in front of the buildings
+//   over(ctx, st, t, p)    per frame, over the creatures too (Hushfall's glass)
+//   still                  the buildings do not bob (they stand inside something)
+const SCENES = {
+  tocktown: { anchors: TOCK_ANCHOR, base: drawWatch, town: drawTown, back: drawWatchLive, front: drawTownLive },
+  hushfall: { anchors: HUSH_ANCHOR, base: drawGlobe, town: drawCity, front: drawCityLive, over: drawGlassOver, still: true, noClouds: true }
+};
 
 const BOX = { w: 360, h: 480 }; // the diorama is authored in this box, then fitted to the screen
 
@@ -67,11 +80,15 @@ const LAMP_COLORS = ['#ffcf5c', '#ff8fa3', '#7fe3d8'];
 const TEASERS = {
   mistlewick: [
     { x: 24, y: 456, r: 21, kind: 'watch', world: 'tocktown' },
-    { x: 342, y: 456, r: 22, kind: 'globe', soon: 0 }
+    { x: 342, y: 456, r: 22, kind: 'globe', world: 'hushfall' }
   ],
   tocktown: [
     { x: 30, y: 458, r: 22, kind: 'teapot', world: 'mistlewick' },
-    { x: 342, y: 456, r: 22, kind: 'globe', soon: 0 }
+    { x: 342, y: 456, r: 22, kind: 'globe', world: 'hushfall' }
+  ],
+  hushfall: [
+    { x: 28, y: 460, r: 22, kind: 'teapot', world: 'mistlewick' },
+    { x: 338, y: 458, r: 20, kind: 'watch', world: 'tocktown' }
   ]
 };
 // Where the spout opens on the painted teapots: stages 0-2, then stage 3 (box coords).
@@ -105,9 +122,13 @@ function createWorldView(getState) {
     // Tocktown
     tocklet: { x: 150, min: 128, max: 232, y: 286, dir: 1, pause: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
     springle: { x: 300, min: 250, max: 336, y: 210, dir: -1, pause: 2, hop: 0, happy: 0, sx: 0, sy: 0, bouncy: true },
-    hourmoth: { x: 180, y: 60, fly: [180, 92, 84, 18], phase: 1.4, dir: 1, hop: 0, happy: 0, sx: 0, sy: 0 }
+    hourmoth: { x: 180, y: 60, fly: [180, 92, 84, 18], phase: 1.4, dir: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
+    // Hushfall (inside the globe)
+    flurrin: { x: 100, min: 58, max: 140, y: 336, dir: 1, pause: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
+    mufflet: { x: 262, min: 224, max: 300, y: 334, dir: -1, pause: 2, hop: 0, happy: 0, sx: 0, sy: 0 },
+    auroryn: { x: 180, y: 130, fly: [180, 128, 100, 18], phase: 0.6, dir: 1, hop: 0, happy: 0, sx: 0, sy: 0 }
   };
-  const isTock = () => getState().worldId === 'tocktown';
+  const anchorOf = (id) => ANCHOR[id] || TOCK_ANCHOR[id] || HUSH_ANCHOR[id];
   const residents = (st) => worldOf(st).creatures.map((c) => c.id);
   const teasers = (st) => TEASERS[st.worldId] || [];
 
@@ -136,7 +157,24 @@ function createWorldView(getState) {
     sky.addColorStop(0.5, mixHex('#191343', '#4d3f99', p));
     sky.addColorStop(1, mixHex('#30205a', '#f09aa8', p));
     const tock = st.worldId === 'tocktown';
-    if (tock) {
+    const hush = st.worldId === 'hushfall';
+    if (hush) {
+      // Hushfall: a pale winter dusk that brightens as the city wakes
+      const dusk = g.createLinearGradient(0, 0, 0, deskY);
+      dusk.addColorStop(0, mixHex('#1a2748', '#2b4a78', p));
+      dusk.addColorStop(0.55, mixHex('#3a4f86', '#6f8fc4', p));
+      dusk.addColorStop(1, mixHex('#8d86b8', '#f0c9d8', p));
+      g.fillStyle = dusk;
+      g.fillRect(0, 0, W, H);
+      const rng = mulberry32(31);
+      for (let i = 0; i < 60; i++) {
+        const x = rng() * W;
+        const y = rng() * deskY * 0.8;
+        const r = 0.4 + rng() * 1.1;
+        g.fillStyle = `rgba(255,255,255,${(0.25 + rng() * 0.5) * (1 - p * 0.4)})`;
+        circle(g, x, y, r);
+      }
+    } else if (tock) {
       // Tocktown: the deep blue of one minute to midnight, warming as the town wakes
       const night = g.createLinearGradient(0, 0, 0, deskY);
       night.addColorStop(0, mixHex('#0b1230', '#16224f', p));
@@ -179,7 +217,7 @@ function createWorldView(getState) {
         circle(g, 69, my + 5, 6.5);
         circle(g, 66, my - 10, 3);
       }
-    } else if (setDone(st) && !place(g, 'mw_moon', 56, my)) {
+    } else if (!hush && setDone(st) && !place(g, 'mw_moon', 56, my)) {
       additive(g, () => glow(g, 56, my, 60, '#bcd0ff', 0.5));
       g.fillStyle = '#f4f7ff';
       circle(g, 56, my, 19);
@@ -187,7 +225,7 @@ function createWorldView(getState) {
       circle(g, 64, my - 6, 16);
     }
     // warm horizon behind the teapot
-    const painted = !tock && has('mw_backdrop'); // painted skies carry their own light
+    const painted = st.worldId === 'mistlewick' && has('mw_backdrop'); // painted skies carry their own light
     additive(g, () => {
       glow(g, W / 2, deskY, 250 * geom.s, '#ff9d6b', painted ? 0.06 + p * 0.12 : 0.12 + p * 0.3);
       if (p >= 1) glow(g, W / 2, geom.oy + 60 * geom.s, 190 * geom.s, '#ffe9a8', painted ? 0.1 : 0.22);
@@ -514,9 +552,10 @@ function createWorldView(getState) {
     for (const tz of teasers(st)) {
       // a case you can open is shown in its own colours; one still waiting is a dark shape
       const open = tz.world && isUnlocked(st, tz.world);
-      const body = open ? '#a8742a' : '#0f3d48';
-      const face = open ? '#fff0c8' : '#1a5662';
-      const dark = open ? '#5a2a3a' : '#0a2c35';
+      const glass = open && tz.kind === 'globe'; // an open snow globe is wood and pale glass, not brass
+      const body = glass ? '#8a4a3a' : open ? '#a8742a' : '#0f3d48';
+      const face = glass ? '#cfe8f5' : open ? '#fff0c8' : '#1a5662';
+      const dark = glass ? '#2f7a6e' : open ? '#5a2a3a' : '#0a2c35';
       const rim = open ? 'rgba(255,246,214,.8)' : 'rgba(196,238,230,.5)';
       g.save();
       g.translate(tz.x, tz.y);
@@ -873,13 +912,13 @@ function createWorldView(getState) {
     g.scale(geom.s, geom.s);
     drawFarSky(g, st);
     drawTeasers(g, st);
-    const tock = st.worldId === 'tocktown';
-    if (tock) drawWatch(g, st);
+    const scene = SCENES[st.worldId];
+    if (scene) scene.base(g, st);
     else drawTeapot(g, st);
     [village, g] = mk();
     g.translate(geom.ox, geom.oy);
     g.scale(geom.s, geom.s);
-    if (tock) lamps = drawTown(g, st);
+    if (scene) lamps = scene.town(g, st);
     else drawVillage(g, st);
   }
 
@@ -891,7 +930,7 @@ function createWorldView(getState) {
     const p = restoration(st);
     fx.update(dt);
 
-    const tock = st.worldId === 'tocktown';
+    const tock = st.worldId !== 'mistlewick'; // (any world with its own scene module)
     // steam rising from the teapot's opening and spout
     if (!tock && Math.random() < dt * (3 + p * 6)) {
       const art = has('mw_teapot_' + upgradeLevel(st, 'teapot'));
@@ -979,7 +1018,8 @@ function createWorldView(getState) {
 
   function draw(ctx, W, H, px) {
     const st = getState();
-    const tock = st.worldId === 'tocktown';
+    const scene = SCENES[st.worldId] || null;
+    const tock = !!scene; // true for every world that has its own scene module
     const k = [
       W, H, px, assetVersion(), st.worldId, setDone(st),
       ...WORLD_ORDER.map((w) => isUnlocked(st, w)),
@@ -990,7 +1030,7 @@ function createWorldView(getState) {
       rebuild(st, px);
       key = k;
     }
-    const bob = bobNow();
+    const bob = scene && scene.still ? 0 : bobNow();
     const p = restoration(st);
     const L = (id) => upgradeLevel(st, id);
 
@@ -1002,7 +1042,7 @@ function createWorldView(getState) {
 
     // --- the sky: drifting cloud, and lit windows on the far-off islands ---
     // (the light shafts and the islands themselves are baked into the background)
-    for (const c of drift) {
+    for (const c of scene && scene.noClouds ? [] : drift) {
       ctx.globalAlpha = c.a * 6;
       ctx.drawImage(puff(), c.x - c.w / 2, c.y - c.w * 0.2, c.w, c.w * 0.4);
     }
@@ -1013,7 +1053,7 @@ function createWorldView(getState) {
       });
     }
 
-    if (tock) drawWatchLive(ctx, st, t, p);
+    if (scene && scene.back) scene.back(ctx, st, t, p);
     // light inside the teapot
     const potArt = has('mw_teapot_' + L('teapot'));
     if (!tock) {
@@ -1050,7 +1090,7 @@ function createWorldView(getState) {
     ctx.translate(geom.ox, geom.oy + bob * geom.s);
     ctx.scale(geom.s, geom.s);
 
-    if (tock) drawTownLive(ctx, st, t, lamps);
+    if (scene) scene.front(ctx, st, t, lamps);
     // Where finished art fills a slot, its own glow layer replaces the
     // hand-placed lights (which sit on the code-drawn windows and lamps).
     const art = (id) => has(`mw_${id}_${L(id)}`);
@@ -1138,6 +1178,7 @@ function createWorldView(getState) {
     ctx.save();
     ctx.translate(geom.ox, geom.oy);
     ctx.scale(geom.s, geom.s);
+    if (scene && scene.over) scene.over(ctx, st, t, p);
     additive(ctx, () => {
       const n = Math.min(flies.length, 10 + Math.round(p * 24));
       for (let i = 0; i < n; i++) {
@@ -1187,13 +1228,14 @@ function createWorldView(getState) {
 
   /** Sparkle burst where an upgrade was just built. */
   function celebrate(id) {
-    const a = ANCHOR[id] || TOCK_ANCHOR[id];
+    const a = anchorOf(id);
     if (!a) return;
-    const [x, y] = toScreen(a[0], a[1], id === 'teapot' || id === 'mainspring' ? 0 : bobNow());
+    const still = id === 'teapot' || id === 'mainspring' || !!HUSH_ANCHOR[id];
+    const [x, y] = toScreen(a[0], a[1], still ? 0 : bobNow());
     fx.emit(x, y, { n: 38, color: ['#ffcf5c', '#fff3c4', '#ff8fa3', '#7fe3d8'], speed: [30, 190], life: [0.5, 1.3], size: [2, 5], gravity: 60, drag: 1.8 });
   }
 
-  return { update, draw, tap, tapTeaser, celebrate, anchorScreen: (id) => toScreen((ANCHOR[id] || TOCK_ANCHOR[id])[0], (ANCHOR[id] || TOCK_ANCHOR[id])[1]), invalidate: () => (key = '') };
+  return { update, draw, tap, tapTeaser, celebrate, anchorScreen: (id) => toScreen(anchorOf(id)[0], anchorOf(id)[1]), invalidate: () => (key = '') };
 }
 
 export { createWorldView };

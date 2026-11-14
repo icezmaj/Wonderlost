@@ -35,7 +35,19 @@ const CASE_FILES = [
   { id: 'tt_hollows', world: 'tocktown', text: 'Awaken 5 hollows in Tocktown', metric: 'hollowsAwakened', target: 5, reward: { glow: 300 } },
   { id: 'tt_relics', world: 'tocktown', text: 'Recover 3 pieces of the Regalia', metric: 'artifactsOwned', target: 3, reward: { sparks: 5 }, nudge: 'finds' },
   { id: 'tt_build10', world: 'tocktown', text: 'Restore 10 things in Tocktown', metric: 'upgradesBought', target: 10, reward: { glow: 400 }, nudge: 'restore' },
-  { id: 'tt_all', world: 'tocktown', text: 'Fully restore Tocktown', metric: 'upgradesBought', target: 18, reward: { glow: 1000 }, nudge: 'restore' }
+  { id: 'tt_all', world: 'tocktown', text: 'Fully restore Tocktown', metric: 'upgradesBought', target: 18, reward: { glow: 1000 }, nudge: 'restore' },
+
+  // ---- Case 003: Hushfall ----
+  { id: 'hf_open', world: 'hushfall', text: 'Launch a Spark into the snow globe', metric: 'dives', target: 1, reward: { sparks: 4 } },
+  { id: 'hf_polish', world: 'hushfall', text: 'Polish the Glass Dome', metric: 'upgradesBought', target: 1, reward: { glow: 300 }, nudge: 'restore' },
+  { id: 'hf_friend', world: 'hushfall', text: 'Befriend a Hushfall creature', metric: 'creaturesFound', target: 1, reward: { sparks: 3 }, nudge: 'finds' },
+  { id: 'hf_lamps', world: 'hushfall', text: 'Light 10 lanterns in Hushfall', metric: 'lanternsLit', target: 10, reward: { glow: 300 } },
+  { id: 'hf_build3', world: 'hushfall', text: 'Restore 3 things in Hushfall', metric: 'upgradesBought', target: 3, reward: { sparks: 5 }, nudge: 'restore' },
+  { id: 'hf_gusts', world: 'hushfall', text: 'Ride gusts of wind 10 times (raise the Weathervane first)', metric: 'gustRides', target: 10, reward: { glow: 400 }, nudge: 'restore' },
+  { id: 'hf_hollows', world: 'hushfall', text: 'Awaken 6 hollows in Hushfall', metric: 'hollowsAwakened', target: 6, reward: { glow: 500 } },
+  { id: 'hf_relics', world: 'hushfall', text: 'Recover 3 Keepsakes of the First Snow', metric: 'artifactsOwned', target: 3, reward: { sparks: 6 }, nudge: 'finds' },
+  { id: 'hf_build10', world: 'hushfall', text: 'Restore 10 things in Hushfall', metric: 'upgradesBought', target: 10, reward: { glow: 800 }, nudge: 'restore' },
+  { id: 'hf_all', world: 'hushfall', text: 'Fully restore Hushfall', metric: 'upgradesBought', target: 18, reward: { glow: 2000 }, nudge: 'restore' }
 ];
 
 // Three of these are offered each local day (seeded by the date). No streaks,

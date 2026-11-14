@@ -27,6 +27,10 @@ const TUNING = {
   hearthMaxScale: 1.6, // companion and upgrade bonuses together never widen the Hearth past this
   cogRadius: 20,
   cogFling: 230, // sideways speed a charged spinning cog adds
+  gustPush: 620, // sideways acceleration inside a gust of wind
+  gustCharges: 2, // times one gust pays Glow in a dive (it always pushes)
+  gustValue: 6,
+  iceRest: 0.08, // ice slides barely bounce: the Spark hugs them and slides
   cogValue: 7, // Glow per charged cog hit (cogs replace some bell blooms, so they pay more)
 
   // --- Chains: gathers inside the window build a chain; tiers multiply Glow ---

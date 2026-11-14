@@ -583,6 +583,10 @@ const TUNING = {
   hearthMaxScale: 1.6, // companion and upgrade bonuses together never widen the Hearth past this
   cogRadius: 20,
   cogFling: 230, // sideways speed a charged spinning cog adds
+  gustPush: 620, // sideways acceleration inside a gust of wind
+  gustCharges: 2, // times one gust pays Glow in a dive (it always pushes)
+  gustValue: 6,
+  iceRest: 0.08, // ice slides barely bounce: the Spark hugs them and slides
   cogValue: 7, // Glow per charged cog hit (cogs replace some bell blooms, so they pay more)
 
   // --- Chains: gathers inside the window build a chain; tiers multiply Glow ---
@@ -644,11 +648,13 @@ __m['src/config/worlds.js'] = (function () {
 //
 // Upgrade `fx` keys are summed across purchased levels into dive/economy modifiers:
 //   sparkCap, homeMult, moteBonus, lanternValue, hollowBonus, bumpers,
-//   bumperValue, geysers, chainWindow (seconds), cogs, hearthGrow (fraction)
+//   bumperValue, geysers, chainWindow (seconds), cogs, hearthGrow (fraction),
+//   gusts, chainStart, rekindleUp
 // Upgrades from every world add up: what you restored in one world still
 // helps in the next.
 // Creature `mods` apply only while that creature is the active companion:
-//   extraRekindles, magnet, hearthScale, chainBonus (seconds), bounceBonus
+//   extraRekindles, magnet, hearthScale, chainBonus (seconds), bounceBonus,
+//   chainHead, gustBonus
 //
 // `unlock` gates a world behind progress in an earlier one. `dive` picks the
 // look and layout of that world's hollows (see sim/level.js, render/diveView.js).
@@ -933,14 +939,154 @@ const WORLDS = {
         { id: 'lens', name: "Watchmaker's Lens", lore: 'Makes small things matter.' }
       ]
     }
+  },
+
+  hushfall: {
+    id: 'hushfall',
+    name: 'Hushfall',
+    caseNo: '003',
+    object: 'A forgotten snow globe',
+    tagline: 'A winter city waiting for its first snowfall in years.',
+    titleLine: 'Nobody has shaken it in years.',
+    homeWord: 'City',
+    unlock: { world: 'tocktown', levels: 12 },
+    dive: { theme: 'frost', layout: 'flake', into: 'the snow globe' },
+
+    upgrades: [
+      {
+        id: 'dome',
+        name: 'Glass Dome',
+        blurb: 'Polish the dusty glass so the city can see the sky.',
+        unlockAt: 0,
+        levels: [
+          { cost: 700, fx: { sparkCap: 1 }, note: '+1 Spark capacity' },
+          { cost: 1800, fx: { sparkCap: 1 }, note: '+1 Spark capacity' },
+          { cost: 3600, fx: { sparkCap: 1 }, note: '+1 Spark capacity' }
+        ]
+      },
+      {
+        id: 'weathervane',
+        name: 'Weathervane',
+        blurb: 'Raise the vane. A gust carries your Spark sideways.',
+        unlockAt: 1,
+        levels: [
+          { cost: 900, fx: { gusts: 1 }, note: '+1 gust of wind in every Hushfall hollow' },
+          { cost: 2200, fx: { gusts: 1 }, note: '+1 gust of wind in every Hushfall hollow' },
+          { cost: 4200, fx: { gusts: 1 }, note: '+1 gust of wind in every Hushfall hollow' }
+        ]
+      },
+      {
+        id: 'chimneys',
+        name: 'Chimney Row',
+        blurb: 'Light the hearths along the row, one house at a time.',
+        unlockAt: 1,
+        levels: [
+          { cost: 1000, fx: { homeMult: 0.25 }, note: 'Homecoming multiplier +0.25' },
+          { cost: 2400, fx: { homeMult: 0.25 }, note: 'Homecoming multiplier +0.25' },
+          { cost: 4600, fx: { homeMult: 0.5 }, note: 'Homecoming multiplier +0.5' }
+        ]
+      },
+      {
+        id: 'skaters',
+        name: 'Skating Pond',
+        blurb: 'Sweep the pond. A good glide starts before you push off.',
+        unlockAt: 3,
+        levels: [
+          { cost: 1300, fx: { chainStart: 2 }, note: 'Every dive starts with a chain of 2' },
+          { cost: 2800, fx: { chainStart: 2 }, note: 'Every dive starts with a chain of 4' },
+          { cost: 5200, fx: { chainStart: 2 }, note: 'Every dive starts with a chain of 6' }
+        ]
+      },
+      {
+        id: 'snowlamps',
+        name: 'Snow Lanterns',
+        blurb: 'Set lanterns in the drifts to guide the first flakes down.',
+        unlockAt: 3,
+        levels: [
+          { cost: 1500, fx: { lanternValue: 5, hollowBonus: 20 }, note: 'Lanterns and awakenings give more Glow' },
+          { cost: 3200, fx: { lanternValue: 5, hollowBonus: 20 }, note: 'Lanterns and awakenings give more Glow' },
+          { cost: 5800, fx: { lanternValue: 6, hollowBonus: 30 }, note: 'Lanterns and awakenings give more Glow' }
+        ]
+      },
+      {
+        id: 'bakery',
+        name: 'Midwinter Bakery',
+        blurb: 'Fire the ovens. The whole street smells of cinnamon.',
+        unlockAt: 5,
+        levels: [
+          { cost: 1800, fx: { moteBonus: 0.15 }, note: '+15% motes in every hollow' },
+          { cost: 3800, fx: { moteBonus: 0.15 }, note: '+30% motes in every hollow' },
+          { cost: 7000, fx: { rekindleUp: 1 }, note: '+1 Rekindle on every dive' }
+        ]
+      }
+    ],
+
+    creatures: [
+      {
+        id: 'flurrin',
+        name: 'Flurrin',
+        rarity: 'Common',
+        persona: 'A snowball in a scarf that rolls everywhere and arrives a little bigger.',
+        arrives: { always: true, hint: 'Asleep in a bubble in the first Hushfall hollow.' },
+        chance: 1,
+        ability: { name: 'Head Start', text: 'Every dive starts with a chain of 3', mods: { chainHead: 3 } },
+        notes: [
+          'Has never once taken the stairs.',
+          'Believes it invented downhill.',
+          'Keeps its scarf on in summer, in case summer is a trick.'
+        ]
+      },
+      {
+        id: 'mufflet',
+        name: 'Mufflet',
+        rarity: 'Uncommon',
+        persona: 'A knitted fox kit, forever one mitten short.',
+        arrives: { upgrade: 'weathervane', level: 1, hint: 'Arrives once the Weathervane turns again.' },
+        chance: 0.6,
+        ability: { name: 'Tailwind', text: 'Gusts and steam geysers give +4 Glow', mods: { gustBonus: 4 } },
+        notes: [
+          'Can tell which way the wind blows by which ear is colder.',
+          'Has a drawer of single mittens. None of them match.',
+          'Curls up in the bakery window until someone notices.'
+        ]
+      },
+      {
+        id: 'auroryn',
+        name: 'Auroryn',
+        rarity: 'Rare',
+        persona: 'A tiny reindeer with the northern lights caught in its antlers.',
+        arrives: { upgrade: 'snowlamps', level: 1, hint: 'Arrives once the Snow Lanterns are lit.' },
+        chance: 0.35,
+        moving: true,
+        ability: { name: 'Northern Light', text: '+1 Rekindle, and nearby motes drift toward your Spark', mods: { extraRekindles: 1, magnet: 40 } },
+        notes: [
+          'Paces back and forth in its bubble, practising take-off.',
+          'Leaves hoofprints that glow for exactly one night.',
+          'Only lands where the snow has not been walked on yet.'
+        ]
+      }
+    ],
+
+    artifactSet: {
+      id: 'first_snow',
+      name: 'Keepsakes of the First Snow',
+      reward: { glow: 1200, cosmetic: 'trail_aurora', label: 'Aurora trail for your Spark + northern lights over Hushfall' },
+      items: [
+        { id: 'mitten', name: 'Lost Mitten', lore: 'Its pair is still looking for it.' },
+        { id: 'sleighbell', name: 'Sleigh Bell', lore: 'Rings once for every flake that lands.' },
+        { id: 'cocoa', name: 'Cocoa Tin', lore: 'Never empty. Nobody knows why.' },
+        { id: 'skate', name: 'Silver Skate', lore: 'Draws a perfect figure eight on its own.' },
+        { id: 'glassflake', name: 'Glass Snowflake', lore: 'The first one. Somebody kept it.' },
+        { id: 'candle', name: 'Window Candle', lore: 'Lit so the snow could find its way home.' }
+      ]
+    }
   }
 };
 
-const WORLD_ORDER = ['mistlewick', 'tocktown'];
+const WORLD_ORDER = ['mistlewick', 'tocktown', 'hushfall'];
 
 // PLACEHOLDER: later worlds exist only as teasers in this slice.
 const COMING_SOON = [
-  { name: 'Hushfall', object: 'A forgotten snow globe', tagline: 'A winter city waiting for its first snowfall in years.' },
   { name: 'Neon Reverie', object: 'An old radio', tagline: 'A musical universe humming between two stations.' }
 ];
 
@@ -1029,7 +1175,10 @@ function modsOf(s) {
     geysers: 0,
     chainWindow: 0,
     cogs: 0,
-    hearthGrow: 0
+    hearthGrow: 0,
+    gusts: 0,
+    chainStart: 0,
+    rekindleUp: 0
   };
   // restoration is permanent: every world's upgrades count, wherever you dive
   for (const id of WORLD_ORDER) {
@@ -1769,7 +1918,19 @@ const CASE_FILES = [
   { id: 'tt_hollows', world: 'tocktown', text: 'Awaken 5 hollows in Tocktown', metric: 'hollowsAwakened', target: 5, reward: { glow: 300 } },
   { id: 'tt_relics', world: 'tocktown', text: 'Recover 3 pieces of the Regalia', metric: 'artifactsOwned', target: 3, reward: { sparks: 5 }, nudge: 'finds' },
   { id: 'tt_build10', world: 'tocktown', text: 'Restore 10 things in Tocktown', metric: 'upgradesBought', target: 10, reward: { glow: 400 }, nudge: 'restore' },
-  { id: 'tt_all', world: 'tocktown', text: 'Fully restore Tocktown', metric: 'upgradesBought', target: 18, reward: { glow: 1000 }, nudge: 'restore' }
+  { id: 'tt_all', world: 'tocktown', text: 'Fully restore Tocktown', metric: 'upgradesBought', target: 18, reward: { glow: 1000 }, nudge: 'restore' },
+
+  // ---- Case 003: Hushfall ----
+  { id: 'hf_open', world: 'hushfall', text: 'Launch a Spark into the snow globe', metric: 'dives', target: 1, reward: { sparks: 4 } },
+  { id: 'hf_polish', world: 'hushfall', text: 'Polish the Glass Dome', metric: 'upgradesBought', target: 1, reward: { glow: 300 }, nudge: 'restore' },
+  { id: 'hf_friend', world: 'hushfall', text: 'Befriend a Hushfall creature', metric: 'creaturesFound', target: 1, reward: { sparks: 3 }, nudge: 'finds' },
+  { id: 'hf_lamps', world: 'hushfall', text: 'Light 10 lanterns in Hushfall', metric: 'lanternsLit', target: 10, reward: { glow: 300 } },
+  { id: 'hf_build3', world: 'hushfall', text: 'Restore 3 things in Hushfall', metric: 'upgradesBought', target: 3, reward: { sparks: 5 }, nudge: 'restore' },
+  { id: 'hf_gusts', world: 'hushfall', text: 'Ride gusts of wind 10 times (raise the Weathervane first)', metric: 'gustRides', target: 10, reward: { glow: 400 }, nudge: 'restore' },
+  { id: 'hf_hollows', world: 'hushfall', text: 'Awaken 6 hollows in Hushfall', metric: 'hollowsAwakened', target: 6, reward: { glow: 500 } },
+  { id: 'hf_relics', world: 'hushfall', text: 'Recover 3 Keepsakes of the First Snow', metric: 'artifactsOwned', target: 3, reward: { sparks: 6 }, nudge: 'finds' },
+  { id: 'hf_build10', world: 'hushfall', text: 'Restore 10 things in Hushfall', metric: 'upgradesBought', target: 10, reward: { glow: 800 }, nudge: 'restore' },
+  { id: 'hf_all', world: 'hushfall', text: 'Fully restore Hushfall', metric: 'upgradesBought', target: 18, reward: { glow: 2000 }, nudge: 'restore' }
 ];
 
 // Three of these are offered each local day (seeded by the date). No streaks,
@@ -1931,7 +2092,8 @@ const TRAILS = {
   trail_comet: { name: 'Comet', colors: ['#ffffff', '#9ad8ff', '#6f7dff'] },
   trail_festival: { name: 'Festival', colors: ['#fff0f3', '#ff8fa3', '#ffcf5c'] },
   trail_rally: { name: 'Rally', colors: ['#f0fff7', '#7fe3d8', '#7be0a0'] },
-  trail_brass: { name: 'Brass', colors: ['#fff6d6', '#f5b942', '#b8732a'] }
+  trail_brass: { name: 'Brass', colors: ['#fff6d6', '#f5b942', '#b8732a'] },
+  trail_aurora: { name: 'Aurora', colors: ['#f0fff7', '#7fe3d8', '#b9a6ff'] }
 };
 
 return { EVENT_CYCLE_HOURS, EVENT_UNLOCK_RANK, EVENTS, TRAILS };
@@ -2217,6 +2379,7 @@ function settleDive(s, result, now, practice = false) {
   bumpWorld(s, 'dives');
   bumpWorld(s, 'lanternsLit', result.lanternsLitNow);
   if (result.cogHits) bumpWorld(s, 'cogHits', result.cogHits);
+  if (result.gustHits) bumpWorld(s, 'gustRides', result.gustHits);
   if (result.bestChain > st.bestChain) st.bestChain = result.bestChain;
   if (total > st.bestDive) st.bestDive = total;
 
@@ -2794,6 +2957,9 @@ function drawCreature(ctx, id, x, y, s, t, opts = {}) {
   else if (id === 'tocklet') tocklet(ctx, t, blink, opts);
   else if (id === 'springle') springle(ctx, t, blink, opts);
   else if (id === 'hourmoth') hourmoth(ctx, t, blink, opts);
+  else if (id === 'flurrin') flurrin(ctx, t, blink, opts);
+  else if (id === 'mufflet') mufflet(ctx, t, blink, opts);
+  else if (id === 'auroryn') auroryn(ctx, t, blink, opts);
   ctx.restore();
 }
 
@@ -3080,6 +3246,175 @@ function hourmoth(ctx, t, blink, o) {
   cheeks(ctx, 3.3, -10.2 + bob, 1.2);
 }
 
+// Flurrin: a snowball in a scarf. It rolls, so its speckles turn.
+function flurrin(ctx, t, blink, o) {
+  const bob = Math.abs(Math.sin(t * 2.6)) * 1.2;
+  const roll = o.asleep ? 0 : t * 1.6;
+  ctx.fillStyle = 'rgba(120,150,190,.25)';
+  ellipse(ctx, 0, 11, 9, 2);
+  ctx.fillStyle = '#c9dcee';
+  circle(ctx, 0, 2.2 - bob, 10.4);
+  ctx.fillStyle = '#ffffff';
+  circle(ctx, -0.4, 1.2 - bob, 10);
+  // packed-snow speckles that travel round as it rolls
+  ctx.fillStyle = 'rgba(160,190,220,.55)';
+  for (let i = 0; i < 4; i++) {
+    const a = roll + i * 1.57;
+    const sx = Math.cos(a) * 7;
+    if (Math.sin(a) > -0.2) circle(ctx, sx, 1.2 - bob + Math.sin(a) * 6.4, 1.1);
+  }
+  // scarf
+  ctx.fillStyle = '#f08a8a';
+  roundRect(ctx, -8.6, 5.4 - bob, 17.2, 3.8, 1.9);
+  ctx.fill();
+  ctx.fillStyle = '#c9647a';
+  roundRect(ctx, 4.4, 6.4 - bob, 3.6, 7.6 + Math.sin(t * 3) * 0.8, 1.6);
+  ctx.fill();
+  ctx.fillStyle = '#fff4dc';
+  ctx.fillRect(-5, 5.4 - bob, 1.6, 3.8);
+  ctx.fillRect(0.4, 5.4 - bob, 1.6, 3.8);
+  eyes(ctx, 3.6, -1 - bob, 1.6, blink);
+  cheeks(ctx, 6.4, 1.8 - bob, 1.9);
+  ctx.fillStyle = '#f5a24a';
+  ctx.beginPath();
+  ctx.moveTo(-0.9, 0.4 - bob);
+  ctx.lineTo(3.6, 1.6 - bob);
+  ctx.lineTo(-0.9, 2.6 - bob);
+  ctx.closePath();
+  ctx.fill();
+  smile(ctx, 2.4 - bob, 1.5, o.happy);
+}
+
+// Mufflet: a knitted fox kit, one mitten short.
+function mufflet(ctx, t, blink, o) {
+  const bob = Math.sin(t * 3) * 0.6;
+  const wag = Math.sin(t * 4) * 0.25;
+  // tail
+  ctx.save();
+  ctx.translate(-7, 6 + bob);
+  ctx.rotate(-0.7 + wag);
+  ctx.fillStyle = '#e8873a';
+  ellipse(ctx, -5, 0, 7.4, 3.8);
+  ctx.fillStyle = '#fff6e2';
+  ellipse(ctx, -9.4, 0, 3.4, 2.8);
+  ctx.restore();
+  // feet: one mitten, one bare paw
+  ctx.fillStyle = '#7fd0c4';
+  ellipse(ctx, -3.6, 10.6, 2.9, 1.8);
+  ctx.fillStyle = '#b9602a';
+  ellipse(ctx, 4.2, 10.6, 2.6, 1.6);
+  // ears
+  ctx.fillStyle = '#e8873a';
+  ctx.beginPath();
+  ctx.moveTo(-8.4, -3 + bob);
+  ctx.lineTo(-6, -12.4 + bob);
+  ctx.lineTo(-1.4, -5.4 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(8.4, -3 + bob);
+  ctx.lineTo(6.4, -12.6 + bob);
+  ctx.lineTo(1.4, -5.4 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#7a4a5a';
+  ctx.beginPath();
+  ctx.moveTo(-6.6, -5 + bob);
+  ctx.lineTo(-5.8, -9.8 + bob);
+  ctx.lineTo(-3.4, -5.8 + bob);
+  ctx.closePath();
+  ctx.fill();
+  // body and face
+  ctx.fillStyle = '#c96a2a';
+  ellipse(ctx, 0, 3.6 + bob, 9.4, 8.2);
+  ctx.fillStyle = '#e8873a';
+  ellipse(ctx, 0, 2.4 + bob, 9, 7.8);
+  ctx.fillStyle = '#fff6e2';
+  ctx.beginPath();
+  ctx.moveTo(-6.6, 3 + bob);
+  ctx.quadraticCurveTo(0, -1.4 + bob, 6.6, 3 + bob);
+  ctx.quadraticCurveTo(0, 12 + bob, -6.6, 3 + bob);
+  ctx.fill();
+  // knit stitches
+  ctx.strokeStyle = 'rgba(122,74,42,.35)';
+  ctx.lineWidth = 0.7;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * 4.4 - 1, -3.4 + bob);
+    ctx.lineTo(i * 4.4, -1.8 + bob);
+    ctx.lineTo(i * 4.4 + 1, -3.4 + bob);
+    ctx.stroke();
+  }
+  eyes(ctx, 3.6, 0.4 + bob, 1.5, blink);
+  cheeks(ctx, 6.4, 3 + bob, 1.7);
+  ctx.fillStyle = '#3a2a3a';
+  circle(ctx, 0, 3.4 + bob, 1.2);
+  smile(ctx, 3.8 + bob, 1.4, o.happy);
+}
+
+// Auroryn: a tiny reindeer with the northern lights in its antlers.
+function auroryn(ctx, t, blink, o) {
+  const bob = Math.sin(t * 2.6) * 1.1;
+  const trot = o.asleep ? 0 : Math.sin(t * 7) * 1.4;
+  // legs
+  ctx.strokeStyle = '#8a6a5a';
+  ctx.lineWidth = 1.7;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-5, 6 + bob);
+  ctx.lineTo(-6 + trot, 11.4);
+  ctx.moveTo(-1.4, 6.6 + bob);
+  ctx.lineTo(-1 - trot, 11.4);
+  ctx.moveTo(3, 6.6 + bob);
+  ctx.lineTo(2.6 + trot, 11.4);
+  ctx.moveTo(6.2, 6 + bob);
+  ctx.lineTo(7.2 - trot, 11.4);
+  ctx.stroke();
+  // body
+  ctx.fillStyle = '#c9a98a';
+  ellipse(ctx, 0.4, 3.4 + bob, 8.6, 5.4);
+  ctx.fillStyle = '#f6e3c8';
+  ellipse(ctx, 0.4, 2.6 + bob, 8.2, 5);
+  ctx.fillStyle = '#fff6e2';
+  circle(ctx, -7.6, 2.4 + bob, 2.2);
+  // antlers: branching, each tip a point of light
+  const tips = [[2.6, -15, '#7be0a0'], [6.4, -14.4, '#7fe3d8'], [9.6, -11.6, '#b9a6ff'], [0.4, -12, '#b9a6ff']];
+  ctx.strokeStyle = '#8a6a5a';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(4.4, -6.4 + bob);
+  ctx.lineTo(3.4, -10 + bob);
+  ctx.lineTo(2.6, -14.4 + bob);
+  ctx.moveTo(3.4, -10 + bob);
+  ctx.lineTo(0.4, -11.6 + bob);
+  ctx.moveTo(7.2, -6 + bob);
+  ctx.lineTo(7.6, -10 + bob);
+  ctx.lineTo(6.4, -13.8 + bob);
+  ctx.moveTo(7.6, -10 + bob);
+  ctx.lineTo(9.6, -11.2 + bob);
+  ctx.stroke();
+  tips.forEach(([x, y, col], i) => {
+    ctx.fillStyle = col;
+    ctx.globalAlpha = o.asleep ? 0.5 : 0.7 + Math.sin(t * 3 + i * 1.4) * 0.3;
+    circle(ctx, x, y + bob, 1.7);
+  });
+  ctx.globalAlpha = 1;
+  // head
+  ctx.fillStyle = '#c9a98a';
+  circle(ctx, 6, -2.4 + bob, 5.6);
+  ctx.fillStyle = '#f6e3c8';
+  circle(ctx, 6, -3 + bob, 5.2);
+  ctx.fillStyle = '#c9a98a';
+  ellipse(ctx, 1.2, -5.6 + bob, 2.4, 1.3);
+  ctx.save();
+  ctx.translate(6, 0);
+  eyes(ctx, 2.2, -3.6 + bob, 1.3, blink);
+  cheeks(ctx, 3.8, -1.4 + bob, 1.3);
+  ctx.restore();
+  ctx.fillStyle = '#f08a8a';
+  circle(ctx, 10.4, -1.6 + bob, 1.3);
+}
+
 /** "Zzz" above a sleeping creature. */
 function drawZzz(ctx, x, y, t) {
   ctx.fillStyle = 'rgba(255,255,255,.85)';
@@ -3291,6 +3626,101 @@ function drawArtifact(ctx, id, x, y, s, silhouette = false) {
     ctx.beginPath();
     ctx.arc(-2, -2, 5.6, 1.1 * Math.PI, 1.5 * Math.PI);
     ctx.stroke();
+  } else if (id === 'mitten') {
+    ctx.rotate(-0.2);
+    ctx.fillStyle = c('#7fd0c4');
+    roundRect(ctx, -7, -9, 13, 17, 6);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(8, -1, 4, 6, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = c('#fff4dc');
+    roundRect(ctx, -8, 7, 15, 6, 2.5);
+    ctx.fill();
+    ctx.fillStyle = c('#f08a8a');
+    circle(ctx, -0.5, -2, 2.4);
+  } else if (id === 'sleighbell') {
+    ctx.strokeStyle = c('#b9566c');
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(0, -8, 5, Math.PI, 0);
+    ctx.stroke();
+    ctx.fillStyle = c('#e7ae4a');
+    circle(ctx, 0, 2, 10);
+    ctx.fillStyle = c('#f8d789');
+    circle(ctx, -2.4, -0.6, 6);
+    ctx.fillStyle = c('#7a4a2a');
+    roundRect(ctx, -6, 4, 12, 2.4, 1.2);
+    ctx.fill();
+    circle(ctx, 0, 6.4, 2);
+  } else if (id === 'cocoa') {
+    ctx.fillStyle = c('#b9566c');
+    roundRect(ctx, -8, -8, 16, 20, 3);
+    ctx.fill();
+    ctx.fillStyle = c('#f6e3b4');
+    roundRect(ctx, -8, -3, 16, 9, 1);
+    ctx.fill();
+    ctx.fillStyle = c('#7a4a2a');
+    circle(ctx, 0, 1.5, 3);
+    ctx.fillStyle = c('#e7ae4a');
+    roundRect(ctx, -9, -11, 18, 4.4, 2);
+    ctx.fill();
+  } else if (id === 'skate') {
+    ctx.fillStyle = c('#fff4dc');
+    ctx.beginPath();
+    ctx.moveTo(-8, -11);
+    ctx.lineTo(-1, -11);
+    ctx.lineTo(0, -1);
+    ctx.quadraticCurveTo(10, -1, 10, 5);
+    ctx.lineTo(-8, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = c('#f08a8a');
+    roundRect(ctx, -9, -13, 9, 4, 2);
+    ctx.fill();
+    ctx.strokeStyle = c('#cfd8ea');
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(-10, 10);
+    ctx.lineTo(9, 10);
+    ctx.quadraticCurveTo(13, 10, 13, 6.6);
+    ctx.moveTo(-5, 5);
+    ctx.lineTo(-5, 10);
+    ctx.moveTo(6, 5);
+    ctx.lineTo(6, 10);
+    ctx.stroke();
+  } else if (id === 'glassflake') {
+    ctx.strokeStyle = c('#bfe9f2');
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const ex = Math.cos(a) * 12;
+      const ey = Math.sin(a) * 12;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(ex, ey);
+      ctx.moveTo(ex * 0.6 + Math.cos(a + 1.2) * 3.6, ey * 0.6 + Math.sin(a + 1.2) * 3.6);
+      ctx.lineTo(ex * 0.6, ey * 0.6);
+      ctx.lineTo(ex * 0.6 + Math.cos(a - 1.2) * 3.6, ey * 0.6 + Math.sin(a - 1.2) * 3.6);
+      ctx.stroke();
+    }
+    ctx.fillStyle = c('#ffffff');
+    circle(ctx, 0, 0, 2.4);
+  } else if (id === 'candle') {
+    ctx.fillStyle = c('#a8742a');
+    roundRect(ctx, -9, 8, 18, 4, 2);
+    ctx.fill();
+    ctx.fillStyle = c('#fff4dc');
+    roundRect(ctx, -4, -4, 8, 13, 2);
+    ctx.fill();
+    ctx.fillStyle = c('#f5b942');
+    ctx.beginPath();
+    ctx.moveTo(0, -13);
+    ctx.quadraticCurveTo(5, -7, 0, -3.6);
+    ctx.quadraticCurveTo(-5, -7, 0, -13);
+    ctx.fill();
+    ctx.fillStyle = c('#fff3c4');
+    circle(ctx, 0, -6.6, 1.6);
   }
   ctx.restore();
 }
@@ -3965,6 +4395,544 @@ function drawTownLive(ctx, st, t, lamps) {
 return { TOCK_ANCHOR, drawWatch, drawWatchLive, drawTown, drawTownLive, gear };
 })();
 
+// ---- src/render/hushfallScene.js ----
+__m['src/render/hushfallScene.js'] = (function () {
+// Hushfall's home scene: a winter city inside a snow globe, waiting for its
+// first snowfall. Unlike the other worlds, everything lives INSIDE the object:
+// the city is drawn within the glass, and the glass is drawn over it.
+// Snow only begins to fall as the city is restored.
+//
+// Everything here is drawn in code, in the same 360 x 480 box as the others.
+
+const { glow, additive, ellipse, circle, roundRect, star4 } = __m['src/render/gfx.js'];
+const { upgradeLevel, restoration, setDone } = __m['src/progression/state.js'];
+const { mixHex } = __m['src/core/util.js'];
+
+const HUSH_ANCHOR = {
+  dome: [180, 426],
+  weathervane: [180, 152],
+  chimneys: [85, 278],
+  skaters: [180, 350],
+  snowlamps: [180, 325],
+  bakery: [282, 272]
+};
+
+const GLOBE = { x: 180, y: 236, r: 172 };
+/** Height of the snowy ground at x (the city stands on a low hill). */
+const gy = (x) => 372 - 60 * Math.sqrt(Math.max(0, 1 - ((x - 180) / 170) ** 2));
+
+// The city is authored small and then enlarged about a point below the hill,
+// so it fills the glass. `zoomed` gives where an authored point ends up.
+const ZOOM = 1.25;
+const PIVOT = [180, 390];
+function zoom(g, fn) {
+  g.save();
+  g.translate(PIVOT[0], PIVOT[1]);
+  g.scale(ZOOM, ZOOM);
+  g.translate(-PIVOT[0], -PIVOT[1]);
+  fn();
+  g.restore();
+}
+/** Ground height at a screen x, after the zoom (for snow landing on it). */
+const groundAt = (x) => PIVOT[1] + (gy(PIVOT[0] + (x - PIVOT[0]) / ZOOM) - PIVOT[1]) * ZOOM;
+
+const HOUSES = [
+  [70, '#f4a6b4', '#c9647a'],
+  [104, '#f6e3b4', '#b9566c'],
+  [138, '#a8dcd0', '#7a4a5a']
+];
+const LAMP_XS = [60, 300, 124, 236];
+const PINES = [[44, 22], [226, 28], [306, 22], [132, 20], [322, 16]];
+
+function ghost(g, on, fn) {
+  g.save();
+  if (!on) g.globalAlpha = 0.26;
+  fn(!on);
+  g.restore();
+}
+
+function pine(g, x, base, h, p) {
+  g.fillStyle = '#5a4a4a';
+  g.fillRect(x - 1.5, base - 4, 3, 5);
+  for (let i = 0; i < 3; i++) {
+    const w = h * (0.62 - i * 0.14);
+    const y = base - 3 - i * h * 0.28;
+    g.fillStyle = mixHex('#4b5a66', '#2f7a6e', 0.3 + p * 0.7);
+    g.beginPath();
+    g.moveTo(x - w, y);
+    g.lineTo(x, y - h * 0.44);
+    g.lineTo(x + w, y);
+    g.closePath();
+    g.fill();
+    if (p > 0.12) {
+      // snow settles on the boughs once it has begun to fall
+      g.fillStyle = `rgba(255,255,255,${Math.min(0.95, p * 1.2)})`;
+      g.beginPath();
+      g.moveTo(x - w * 0.5, y - h * 0.22);
+      g.lineTo(x, y - h * 0.44);
+      g.lineTo(x + w * 0.5, y - h * 0.22);
+      g.quadraticCurveTo(x, y - h * 0.14, x - w * 0.5, y - h * 0.22);
+      g.fill();
+    }
+  }
+}
+
+/** A drift of snow lying along a roof edge. */
+function snowcap(g, x1, x2, y, p) {
+  if (p < 0.12) return;
+  g.fillStyle = `rgba(255,255,255,${Math.min(1, p * 1.3)})`;
+  roundRect(g, x1, y - 3.4, x2 - x1, 5, 2.5);
+  g.fill();
+}
+
+// ------------------------------------------------------------ behind the city
+
+/** Background layer: the shadow on the table and the back of the glass. */
+function drawGlobe(g) {
+  const { x, y, r } = GLOBE;
+  g.save();
+  g.translate(x, 464);
+  g.scale(1, 0.12);
+  glow(g, 0, 0, 190, '#03171c', 0.9);
+  glow(g, 0, 0, 130, '#03171c', 0.8);
+  g.restore();
+  const back = g.createRadialGradient(x - 50, y - 70, 20, x, y, r);
+  back.addColorStop(0, 'rgba(206,232,248,.20)');
+  back.addColorStop(1, 'rgba(120,166,208,.34)');
+  g.fillStyle = back;
+  circle(g, x, y, r);
+}
+
+// ------------------------------------------------------------ the city
+
+/** Static parts of the city and the globe's base. Returns lamp positions that glow each frame. */
+function drawCity(g, st) {
+  const L = (id) => upgradeLevel(st, id);
+  const p = restoration(st);
+  const lamps = [];
+  const { x: cx, y: cy, r } = GLOBE;
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+
+  g.save();
+  g.beginPath();
+  g.arc(cx, cy, r - 2, 0, Math.PI * 2);
+  g.clip();
+  g.translate(PIVOT[0], PIVOT[1]);
+  g.scale(ZOOM, ZOOM);
+  g.translate(-PIVOT[0], -PIVOT[1]);
+
+  // far hills and pines
+  g.fillStyle = mixHex('#6f7c9c', '#dfeaf6', p);
+  ellipse(g, 84, 338, 118, 50);
+  g.fillStyle = mixHex('#7884a4', '#eaf2fa', p);
+  ellipse(g, 276, 334, 128, 56);
+  for (const [px, h] of PINES) pine(g, px, gy(px) + 2, h, p);
+
+  // the ground: bare and grey until the snow comes
+  const ground = g.createLinearGradient(0, 312, 0, 420);
+  ground.addColorStop(0, mixHex('#a2a8ba', '#ffffff', p));
+  ground.addColorStop(1, mixHex('#7c8498', '#c9def0', p));
+  g.fillStyle = ground;
+  ellipse(g, 180, 372, 170, 60);
+
+  // --- Skating Pond ---
+  const sk = L('skaters');
+  g.fillStyle = mixHex('#8490aa', '#eef6fb', p);
+  ellipse(g, 180, 359, 61, 14.5);
+  g.fillStyle = sk ? '#bfe6f5' : '#8b97b3';
+  ellipse(g, 180, 358, 56, 12);
+  if (sk) {
+    g.strokeStyle = 'rgba(255,255,255,.75)';
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.moveTo(150, 355);
+    g.lineTo(172, 352);
+    g.moveTo(186, 362);
+    g.lineTo(214, 359);
+    g.stroke();
+    if (sk >= 2) {
+      // figure eights scored into the ice
+      g.strokeStyle = 'rgba(111,166,200,.5)';
+      g.lineWidth = 0.8;
+      g.beginPath();
+      g.ellipse(166, 358, 12, 4, 0, 0, Math.PI * 2);
+      g.ellipse(194, 358, 12, 4, 0, 0, Math.PI * 2);
+      g.stroke();
+    }
+    if (sk >= 3) {
+      // a little bench and a string of flags
+      g.fillStyle = '#7a4a5a';
+      roundRect(g, 232, 350, 14, 3, 1);
+      g.fill();
+      g.fillRect(234, 353, 1.6, 4);
+      g.fillRect(243, 353, 1.6, 4);
+    }
+  }
+
+  // --- Weathervane tower ---
+  const wv = L('weathervane');
+  ghost(g, wv > 0, (gh) => {
+    const base = gy(180) + 3;
+    g.fillStyle = gh ? '#8d88c6' : '#b9c6dc';
+    g.beginPath();
+    g.moveTo(166, base);
+    g.lineTo(169, 224);
+    g.lineTo(191, 224);
+    g.lineTo(194, base);
+    g.closePath();
+    g.fill();
+    g.fillStyle = gh ? '#9d98d6' : '#e8eef7';
+    g.beginPath();
+    g.moveTo(166, base);
+    g.lineTo(169, 224);
+    g.lineTo(184, 224);
+    g.lineTo(185, base);
+    g.closePath();
+    g.fill();
+    // steep roof
+    g.fillStyle = gh ? '#9d98d6' : '#3d6f8f';
+    g.beginPath();
+    g.moveTo(163, 226);
+    g.quadraticCurveTo(178, 218, 180, 190);
+    g.quadraticCurveTo(182, 218, 197, 226);
+    g.closePath();
+    g.fill();
+    if (gh) return;
+    g.fillStyle = '#5f93b3';
+    g.beginPath();
+    g.moveTo(163, 226);
+    g.quadraticCurveTo(176, 218, 180, 190);
+    g.lineTo(180, 226);
+    g.closePath();
+    g.fill();
+    snowcap(g, 162, 198, 226, p);
+    g.fillStyle = '#4a5a7a';
+    g.beginPath();
+    g.moveTo(175, base);
+    g.lineTo(175, base - 12);
+    g.arc(180, base - 12, 5, Math.PI, 0);
+    g.lineTo(185, base);
+    g.fill();
+    if (wv >= 2) {
+      g.fillStyle = '#ffe08a';
+      roundRect(g, 176, 240, 5, 8, 2);
+      g.fill();
+      roundRect(g, 181, 262, 5, 8, 2);
+      g.fill();
+      g.fillStyle = '#7f93b3';
+      roundRect(g, 164, 282, 32, 3.5, 1.5);
+      g.fill();
+    }
+    if (wv >= 3) {
+      g.strokeStyle = '#f5b942';
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(164, 226);
+      g.lineTo(196, 226);
+      g.stroke();
+    }
+  });
+
+  // --- Chimney Row: one more house comes home per level ---
+  const ch = L('chimneys');
+  HOUSES.forEach(([hx, wall, roof], i) => {
+    const on = i < ch;
+    if (!on && i > 0) return;
+    const base = gy(hx) + 3;
+    ghost(g, on, (gh) => {
+      g.fillStyle = gh ? '#9d98d6' : '#8a6a6a';
+      g.fillRect(hx + 5, base - 42, 6, 14);
+      g.fillStyle = gh ? '#9d98d6' : wall;
+      roundRect(g, hx - 14, base - 22, 28, 22, 3);
+      g.fill();
+      g.fillStyle = gh ? '#8d88c6' : roof;
+      g.beginPath();
+      g.moveTo(hx - 18, base - 20);
+      g.lineTo(hx, base - 38);
+      g.lineTo(hx + 18, base - 20);
+      g.closePath();
+      g.fill();
+      if (gh) return;
+      // snow on the roof once it falls
+      if (p > 0.12) {
+        g.fillStyle = `rgba(255,255,255,${Math.min(1, p * 1.3)})`;
+        g.beginPath();
+        g.moveTo(hx - 18, base - 20);
+        g.lineTo(hx, base - 38);
+        g.lineTo(hx + 18, base - 20);
+        g.lineTo(hx + 12, base - 21);
+        g.lineTo(hx, base - 32);
+        g.lineTo(hx - 12, base - 21);
+        g.closePath();
+        g.fill();
+        snowcap(g, hx + 4, hx + 12, base - 42, p);
+      }
+      g.fillStyle = '#ffe08a';
+      roundRect(g, hx - 9, base - 15, 7, 7, 1.5);
+      g.fill();
+      g.fillStyle = '#7a4a5a';
+      roundRect(g, hx + 2, base - 13, 7, 13, 2);
+      g.fill();
+    });
+  });
+
+  // --- Midwinter Bakery ---
+  const bk = L('bakery');
+  ghost(g, bk > 0, (gh) => {
+    const bx = 262;
+    const base = gy(bx) + 3;
+    g.fillStyle = gh ? '#9d98d6' : '#8a6a6a';
+    g.fillRect(bx + 10, base - 52, 7, 16);
+    if (!gh && bk >= 3) g.fillRect(bx - 16, base - 48, 6, 12);
+    g.fillStyle = gh ? '#9d98d6' : '#f6e3b4';
+    roundRect(g, bx - 24, base - 30, 48, 30, 3);
+    g.fill();
+    g.fillStyle = gh ? '#8d88c6' : '#b9566c';
+    g.beginPath();
+    g.moveTo(bx - 28, base - 28);
+    g.lineTo(bx - 14, base - 44);
+    g.lineTo(bx + 14, base - 44);
+    g.lineTo(bx + 28, base - 28);
+    g.closePath();
+    g.fill();
+    if (gh) return;
+    snowcap(g, bx - 15, bx + 15, base - 44, p);
+    snowcap(g, bx + 9, bx + 18, base - 52, p);
+    // big warm window and a door
+    g.fillStyle = '#ffe08a';
+    roundRect(g, bx - 19, base - 21, 20, 13, 2);
+    g.fill();
+    g.fillStyle = '#c98a4b';
+    circle(g, bx - 13, base - 12.5, 2.4);
+    circle(g, bx - 6, base - 12.5, 2.4);
+    g.fillStyle = '#7a4a5a';
+    roundRect(g, bx + 7, base - 17, 10, 17, 2.5);
+    g.fill();
+    if (bk >= 2) {
+      // striped awning and a round sign
+      for (let k = 0; k < 5; k++) {
+        g.fillStyle = k % 2 ? '#fff4dc' : '#f08a8a';
+        g.fillRect(bx - 22 + k * 4.6, base - 26, 4.6, 5);
+        circle(g, bx - 22 + k * 4.6 + 2.3, base - 21, 2.3);
+      }
+      g.fillStyle = '#f5b942';
+      circle(g, bx + 26, base - 22, 5);
+      g.fillStyle = '#7a4a5a';
+      circle(g, bx + 26, base - 22, 2.2);
+    }
+    if (bk >= 3) {
+      g.fillStyle = '#2f7a6e';
+      circle(g, bx + 12, base - 23, 4.2);
+      g.fillStyle = '#f6e3b4';
+      circle(g, bx + 12, base - 23, 2);
+      g.fillStyle = '#f08a8a';
+      circle(g, bx + 12, base - 19.4, 1.4);
+    }
+  });
+
+  // --- Snow Lanterns: posts set in the drifts ---
+  const nLamps = [0, 1, 2, 4][L('snowlamps')];
+  LAMP_XS.forEach((lx, i) => {
+    const on = i < nLamps;
+    if (!on && i > 1) return;
+    const base = gy(lx) + 20;
+    g.save();
+    if (!on) g.globalAlpha = 0.26;
+    g.strokeStyle = on ? '#4a5a7a' : '#9d98d6';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(lx, base);
+    g.lineTo(lx, base - 17);
+    g.stroke();
+    g.fillStyle = on ? '#4a5a7a' : '#9d98d6';
+    roundRect(g, lx - 4, base - 26, 8, 2.4, 1);
+    g.fill();
+    g.fillStyle = on ? '#ffe08a' : '#9d98d6';
+    roundRect(g, lx - 3.4, base - 24, 6.8, 8, 2);
+    g.fill();
+    if (on) lamps.push([lx, base - 20, '#ffe08a']); // (authored coords: the glow is drawn inside the same zoom)
+    g.restore();
+  });
+  g.restore(); // end of what is inside the glass
+
+  // --- the base: the Glass Dome upgrade polishes it too ---
+  const dm = L('dome');
+  const q = dm / 3;
+  const wood = mixHex('#6b6596', '#8a4a3a', q);
+  const woodDk = mixHex('#57527f', '#5f2f2a', q);
+  const trim = mixHex('#9d98c6', '#f5b942', q);
+  g.fillStyle = woodDk;
+  g.beginPath();
+  g.moveTo(72, 400);
+  g.lineTo(288, 400);
+  g.quadraticCurveTo(302, 440, 300, 462);
+  g.lineTo(60, 462);
+  g.quadraticCurveTo(58, 440, 72, 400);
+  g.fill();
+  g.fillStyle = wood;
+  g.beginPath();
+  g.moveTo(72, 400);
+  g.lineTo(230, 400);
+  g.quadraticCurveTo(240, 440, 238, 462);
+  g.lineTo(60, 462);
+  g.quadraticCurveTo(58, 440, 72, 400);
+  g.fill();
+  g.fillStyle = trim;
+  roundRect(g, 66, 392, 228, 12, 6);
+  g.fill();
+  g.fillStyle = 'rgba(255,255,255,.3)';
+  roundRect(g, 72, 394, 150, 3, 1.5);
+  g.fill();
+  g.fillStyle = trim;
+  roundRect(g, 144, 422, 72, 20, 4);
+  g.fill();
+  g.fillStyle = woodDk;
+  g.font = '800 8px Nunito, sans-serif';
+  g.textAlign = 'center';
+  g.fillText('HUSHFALL', 180, 435.5);
+  return lamps;
+}
+
+/** Per-frame life inside the globe: smoke, skaters, the turning vane, warm light. */
+function drawCityLive(ctx, st, t, lamps) {
+  zoom(ctx, () => cityLive(ctx, st, t, lamps));
+}
+
+function cityLive(ctx, st, t, lamps) {
+  const L = (id) => upgradeLevel(st, id);
+
+  // chimney smoke from every lit hearth
+  const ch = L('chimneys');
+  const stacks = HOUSES.slice(0, ch).map(([hx]) => [hx + 8, gy(hx) + 3 - 42]);
+  const bk = L('bakery');
+  if (bk >= 1) stacks.push([275, gy(262) + 3 - 52]);
+  if (bk >= 3) stacks.push([249, gy(262) + 3 - 48]);
+  stacks.forEach(([sx, sy], k) => {
+    for (let i = 0; i < 3; i++) {
+      const u = (((t * 0.22 + i / 3 + k * 0.17) % 1) + 1) % 1;
+      ctx.fillStyle = `rgba(255,255,255,${(1 - u) * 0.34})`;
+      circle(ctx, sx + u * 7 + Math.sin(u * 5 + k) * 3, sy - u * 34, 2.6 + u * 5);
+    }
+  });
+
+  // skaters circle the pond: one more per level
+  const sk = L('skaters');
+  for (let i = 0; i < sk; i++) {
+    const a = t * (0.8 + i * 0.13) * (i % 2 ? -1 : 1) + i * 2.1;
+    const x = 180 + Math.cos(a) * (40 - i * 7);
+    const y = 357 + Math.sin(a) * (8 - i * 1.4);
+    ctx.fillStyle = 'rgba(60,80,110,.2)';
+    ellipse(ctx, x, y + 1, 3.4, 1.1);
+    ctx.fillStyle = ['#f08a8a', '#7fd0c4', '#f5b942'][i];
+    roundRect(ctx, x - 2.2, y - 8, 4.4, 7, 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffe4d0';
+    circle(ctx, x, y - 10.4, 2.3);
+    ctx.fillStyle = ['#7a4a5a', '#3d6f8f', '#b9566c'][i];
+    ctx.beginPath();
+    ctx.arc(x, y - 11, 2.4, Math.PI, 0);
+    ctx.fill();
+  }
+
+  // the weathervane swings with the wind
+  const wv = L('weathervane');
+  if (wv >= 1) {
+    const w = Math.cos(t * 0.9 + Math.sin(t * 0.37) * 1.4);
+    ctx.strokeStyle = '#f5b942';
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(180, 191);
+    ctx.lineTo(180, 174);
+    ctx.moveTo(180 - 12 * w, 178);
+    ctx.lineTo(180 + 12 * w, 178);
+    ctx.stroke();
+    ctx.fillStyle = '#f5b942';
+    ctx.beginPath();
+    ctx.moveTo(180 + 15 * w, 178);
+    ctx.lineTo(180 + 9 * w, 174.4);
+    ctx.lineTo(180 + 9 * w, 181.6);
+    ctx.closePath();
+    ctx.fill();
+    circle(ctx, 180, 172.6, 2);
+  }
+
+  additive(ctx, () => {
+    for (let i = 0; i < lamps.length; i++) {
+      const [x, y, col] = lamps[i];
+      glow(ctx, x, y, 12 + Math.sin(t * 3 + i * 1.7) * 1.6, col, 0.8);
+    }
+    HOUSES.slice(0, ch).forEach(([hx], i) => glow(ctx, hx - 5.5, gy(hx) - 8.5, 9, '#ffe08a', 0.6 + Math.sin(t * 2 + i) * 0.08));
+    if (bk >= 1) glow(ctx, 253, gy(262) - 11, 15 + bk * 2, '#ffd98a', 0.55);
+    if (wv >= 2) glow(ctx, 180, 252, 14, '#ffe08a', 0.4);
+    if (wv >= 3) glow(ctx, 180, 174, 11 + Math.sin(t * 2.4) * 2, '#ffcf5c', 0.6);
+  });
+}
+
+/** Drawn last, over the city and its creatures: falling snow, northern lights, and the glass. */
+function drawGlassOver(ctx, st, t, p) {
+  const { x: cx, y: cy, r } = GLOBE;
+  const dm = upgradeLevel(st, 'dome');
+
+  // the first snowfall: nothing at all until the city starts to wake
+  const flakes = Math.round(p * 54);
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  for (let i = 0; i < flakes; i++) {
+    const fx = cx + Math.sin(i * 12.9898) * 152 + Math.sin(t * 0.8 + i) * 8;
+    const fy = 72 + ((i * 37.7 + t * (13 + (i % 7) * 3)) % 300);
+    if (Math.hypot(fx - cx, fy - cy) > r - 10 || fy > groundAt(fx) + 26) continue;
+    circle(ctx, fx, fy, 1.1 + (i % 3) * 0.5);
+  }
+
+  // northern lights: the reward for the Keepsakes
+  if (setDone(st, 'hushfall')) {
+    additive(ctx, () => {
+      ['#7be0a0', '#7fe3d8', '#b9a6ff'].forEach((col, k) => {
+        for (let ax = 70; ax <= 290; ax += 20) {
+          const ay = 118 + k * 15 + Math.sin(ax * 0.022 + t * 0.45 + k * 1.3) * 15;
+          glow(ctx, ax, ay, 26, col, 0.13 + Math.sin(t * 0.8 + ax * 0.05 + k) * 0.04);
+        }
+      });
+    });
+  }
+
+  // years of dust on the glass, polished away level by level
+  const film = [0.36, 0.2, 0.09, 0][dm];
+  if (film > 0) {
+    ctx.fillStyle = `rgba(150,154,176,${film})`;
+    circle(ctx, cx, cy, r - 1);
+  }
+  // rim and highlights
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(232,246,255,.55)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 1, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = `rgba(255,255,255,${0.28 + dm * 0.1})`;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 14, 1.1 * Math.PI, 1.4 * Math.PI);
+  ctx.stroke();
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 24, 1.46 * Math.PI, 1.53 * Math.PI);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.16)';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 10, 0.1 * Math.PI, 0.3 * Math.PI);
+  ctx.stroke();
+  if (dm >= 3) {
+    ctx.fillStyle = `rgba(255,255,255,${0.5 + Math.sin(t * 2.4) * 0.4})`;
+    star4(ctx, cx - 96, cy - 112, 6, 0);
+  }
+}
+
+return { HUSH_ANCHOR, drawGlobe, drawCity, drawCityLive, drawGlassOver };
+})();
+
 // ---- src/render/worldView.js ----
 __m['src/render/worldView.js'] = (function () {
 // The home diorama: Mistlewick, a cloud village rising out of a cracked teapot
@@ -3981,6 +4949,19 @@ const { has, place, slot, cover, band, assetVersion } = __m['src/render/assets.j
 const { upgradeLevel, restoration, worldOf, isUnlocked, setDone } = __m['src/progression/state.js'];
 const { WORLDS, WORLD_ORDER } = __m['src/config/worlds.js'];
 const { TOCK_ANCHOR, drawWatch, drawWatchLive, drawTown, drawTownLive } = __m['src/render/tocktownScene.js'];
+const { HUSH_ANCHOR, drawGlobe, drawCity, drawCityLive, drawGlassOver } = __m['src/render/hushfallScene.js'];
+
+// Worlds after Mistlewick are drawn by their own scene module. Each gives:
+//   base(g, st)            static, behind everything (the object on the table)
+//   town(g, st) -> lamps   static buildings; returns lamp positions that glow
+//   back(ctx, st, t, p)    per frame, behind the buildings
+//   front(ctx, st, t, lamps) per frame, in front of the buildings
+//   over(ctx, st, t, p)    per frame, over the creatures too (Hushfall's glass)
+//   still                  the buildings do not bob (they stand inside something)
+const SCENES = {
+  tocktown: { anchors: TOCK_ANCHOR, base: drawWatch, town: drawTown, back: drawWatchLive, front: drawTownLive },
+  hushfall: { anchors: HUSH_ANCHOR, base: drawGlobe, town: drawCity, front: drawCityLive, over: drawGlassOver, still: true, noClouds: true }
+};
 
 const BOX = { w: 360, h: 480 }; // the diorama is authored in this box, then fitted to the screen
 
@@ -4036,11 +5017,15 @@ const LAMP_COLORS = ['#ffcf5c', '#ff8fa3', '#7fe3d8'];
 const TEASERS = {
   mistlewick: [
     { x: 24, y: 456, r: 21, kind: 'watch', world: 'tocktown' },
-    { x: 342, y: 456, r: 22, kind: 'globe', soon: 0 }
+    { x: 342, y: 456, r: 22, kind: 'globe', world: 'hushfall' }
   ],
   tocktown: [
     { x: 30, y: 458, r: 22, kind: 'teapot', world: 'mistlewick' },
-    { x: 342, y: 456, r: 22, kind: 'globe', soon: 0 }
+    { x: 342, y: 456, r: 22, kind: 'globe', world: 'hushfall' }
+  ],
+  hushfall: [
+    { x: 28, y: 460, r: 22, kind: 'teapot', world: 'mistlewick' },
+    { x: 338, y: 458, r: 20, kind: 'watch', world: 'tocktown' }
   ]
 };
 // Where the spout opens on the painted teapots: stages 0-2, then stage 3 (box coords).
@@ -4074,9 +5059,13 @@ function createWorldView(getState) {
     // Tocktown
     tocklet: { x: 150, min: 128, max: 232, y: 286, dir: 1, pause: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
     springle: { x: 300, min: 250, max: 336, y: 210, dir: -1, pause: 2, hop: 0, happy: 0, sx: 0, sy: 0, bouncy: true },
-    hourmoth: { x: 180, y: 60, fly: [180, 92, 84, 18], phase: 1.4, dir: 1, hop: 0, happy: 0, sx: 0, sy: 0 }
+    hourmoth: { x: 180, y: 60, fly: [180, 92, 84, 18], phase: 1.4, dir: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
+    // Hushfall (inside the globe)
+    flurrin: { x: 100, min: 58, max: 140, y: 336, dir: 1, pause: 1, hop: 0, happy: 0, sx: 0, sy: 0 },
+    mufflet: { x: 262, min: 224, max: 300, y: 334, dir: -1, pause: 2, hop: 0, happy: 0, sx: 0, sy: 0 },
+    auroryn: { x: 180, y: 130, fly: [180, 128, 100, 18], phase: 0.6, dir: 1, hop: 0, happy: 0, sx: 0, sy: 0 }
   };
-  const isTock = () => getState().worldId === 'tocktown';
+  const anchorOf = (id) => ANCHOR[id] || TOCK_ANCHOR[id] || HUSH_ANCHOR[id];
   const residents = (st) => worldOf(st).creatures.map((c) => c.id);
   const teasers = (st) => TEASERS[st.worldId] || [];
 
@@ -4105,7 +5094,24 @@ function createWorldView(getState) {
     sky.addColorStop(0.5, mixHex('#191343', '#4d3f99', p));
     sky.addColorStop(1, mixHex('#30205a', '#f09aa8', p));
     const tock = st.worldId === 'tocktown';
-    if (tock) {
+    const hush = st.worldId === 'hushfall';
+    if (hush) {
+      // Hushfall: a pale winter dusk that brightens as the city wakes
+      const dusk = g.createLinearGradient(0, 0, 0, deskY);
+      dusk.addColorStop(0, mixHex('#1a2748', '#2b4a78', p));
+      dusk.addColorStop(0.55, mixHex('#3a4f86', '#6f8fc4', p));
+      dusk.addColorStop(1, mixHex('#8d86b8', '#f0c9d8', p));
+      g.fillStyle = dusk;
+      g.fillRect(0, 0, W, H);
+      const rng = mulberry32(31);
+      for (let i = 0; i < 60; i++) {
+        const x = rng() * W;
+        const y = rng() * deskY * 0.8;
+        const r = 0.4 + rng() * 1.1;
+        g.fillStyle = `rgba(255,255,255,${(0.25 + rng() * 0.5) * (1 - p * 0.4)})`;
+        circle(g, x, y, r);
+      }
+    } else if (tock) {
       // Tocktown: the deep blue of one minute to midnight, warming as the town wakes
       const night = g.createLinearGradient(0, 0, 0, deskY);
       night.addColorStop(0, mixHex('#0b1230', '#16224f', p));
@@ -4148,7 +5154,7 @@ function createWorldView(getState) {
         circle(g, 69, my + 5, 6.5);
         circle(g, 66, my - 10, 3);
       }
-    } else if (setDone(st) && !place(g, 'mw_moon', 56, my)) {
+    } else if (!hush && setDone(st) && !place(g, 'mw_moon', 56, my)) {
       additive(g, () => glow(g, 56, my, 60, '#bcd0ff', 0.5));
       g.fillStyle = '#f4f7ff';
       circle(g, 56, my, 19);
@@ -4156,7 +5162,7 @@ function createWorldView(getState) {
       circle(g, 64, my - 6, 16);
     }
     // warm horizon behind the teapot
-    const painted = !tock && has('mw_backdrop'); // painted skies carry their own light
+    const painted = st.worldId === 'mistlewick' && has('mw_backdrop'); // painted skies carry their own light
     additive(g, () => {
       glow(g, W / 2, deskY, 250 * geom.s, '#ff9d6b', painted ? 0.06 + p * 0.12 : 0.12 + p * 0.3);
       if (p >= 1) glow(g, W / 2, geom.oy + 60 * geom.s, 190 * geom.s, '#ffe9a8', painted ? 0.1 : 0.22);
@@ -4483,9 +5489,10 @@ function createWorldView(getState) {
     for (const tz of teasers(st)) {
       // a case you can open is shown in its own colours; one still waiting is a dark shape
       const open = tz.world && isUnlocked(st, tz.world);
-      const body = open ? '#a8742a' : '#0f3d48';
-      const face = open ? '#fff0c8' : '#1a5662';
-      const dark = open ? '#5a2a3a' : '#0a2c35';
+      const glass = open && tz.kind === 'globe'; // an open snow globe is wood and pale glass, not brass
+      const body = glass ? '#8a4a3a' : open ? '#a8742a' : '#0f3d48';
+      const face = glass ? '#cfe8f5' : open ? '#fff0c8' : '#1a5662';
+      const dark = glass ? '#2f7a6e' : open ? '#5a2a3a' : '#0a2c35';
       const rim = open ? 'rgba(255,246,214,.8)' : 'rgba(196,238,230,.5)';
       g.save();
       g.translate(tz.x, tz.y);
@@ -4842,13 +5849,13 @@ function createWorldView(getState) {
     g.scale(geom.s, geom.s);
     drawFarSky(g, st);
     drawTeasers(g, st);
-    const tock = st.worldId === 'tocktown';
-    if (tock) drawWatch(g, st);
+    const scene = SCENES[st.worldId];
+    if (scene) scene.base(g, st);
     else drawTeapot(g, st);
     [village, g] = mk();
     g.translate(geom.ox, geom.oy);
     g.scale(geom.s, geom.s);
-    if (tock) lamps = drawTown(g, st);
+    if (scene) lamps = scene.town(g, st);
     else drawVillage(g, st);
   }
 
@@ -4860,7 +5867,7 @@ function createWorldView(getState) {
     const p = restoration(st);
     fx.update(dt);
 
-    const tock = st.worldId === 'tocktown';
+    const tock = st.worldId !== 'mistlewick'; // (any world with its own scene module)
     // steam rising from the teapot's opening and spout
     if (!tock && Math.random() < dt * (3 + p * 6)) {
       const art = has('mw_teapot_' + upgradeLevel(st, 'teapot'));
@@ -4948,7 +5955,8 @@ function createWorldView(getState) {
 
   function draw(ctx, W, H, px) {
     const st = getState();
-    const tock = st.worldId === 'tocktown';
+    const scene = SCENES[st.worldId] || null;
+    const tock = !!scene; // true for every world that has its own scene module
     const k = [
       W, H, px, assetVersion(), st.worldId, setDone(st),
       ...WORLD_ORDER.map((w) => isUnlocked(st, w)),
@@ -4959,7 +5967,7 @@ function createWorldView(getState) {
       rebuild(st, px);
       key = k;
     }
-    const bob = bobNow();
+    const bob = scene && scene.still ? 0 : bobNow();
     const p = restoration(st);
     const L = (id) => upgradeLevel(st, id);
 
@@ -4971,7 +5979,7 @@ function createWorldView(getState) {
 
     // --- the sky: drifting cloud, and lit windows on the far-off islands ---
     // (the light shafts and the islands themselves are baked into the background)
-    for (const c of drift) {
+    for (const c of scene && scene.noClouds ? [] : drift) {
       ctx.globalAlpha = c.a * 6;
       ctx.drawImage(puff(), c.x - c.w / 2, c.y - c.w * 0.2, c.w, c.w * 0.4);
     }
@@ -4982,7 +5990,7 @@ function createWorldView(getState) {
       });
     }
 
-    if (tock) drawWatchLive(ctx, st, t, p);
+    if (scene && scene.back) scene.back(ctx, st, t, p);
     // light inside the teapot
     const potArt = has('mw_teapot_' + L('teapot'));
     if (!tock) {
@@ -5019,7 +6027,7 @@ function createWorldView(getState) {
     ctx.translate(geom.ox, geom.oy + bob * geom.s);
     ctx.scale(geom.s, geom.s);
 
-    if (tock) drawTownLive(ctx, st, t, lamps);
+    if (scene) scene.front(ctx, st, t, lamps);
     // Where finished art fills a slot, its own glow layer replaces the
     // hand-placed lights (which sit on the code-drawn windows and lamps).
     const art = (id) => has(`mw_${id}_${L(id)}`);
@@ -5107,6 +6115,7 @@ function createWorldView(getState) {
     ctx.save();
     ctx.translate(geom.ox, geom.oy);
     ctx.scale(geom.s, geom.s);
+    if (scene && scene.over) scene.over(ctx, st, t, p);
     additive(ctx, () => {
       const n = Math.min(flies.length, 10 + Math.round(p * 24));
       for (let i = 0; i < n; i++) {
@@ -5156,13 +6165,14 @@ function createWorldView(getState) {
 
   /** Sparkle burst where an upgrade was just built. */
   function celebrate(id) {
-    const a = ANCHOR[id] || TOCK_ANCHOR[id];
+    const a = anchorOf(id);
     if (!a) return;
-    const [x, y] = toScreen(a[0], a[1], id === 'teapot' || id === 'mainspring' ? 0 : bobNow());
+    const still = id === 'teapot' || id === 'mainspring' || !!HUSH_ANCHOR[id];
+    const [x, y] = toScreen(a[0], a[1], still ? 0 : bobNow());
     fx.emit(x, y, { n: 38, color: ['#ffcf5c', '#fff3c4', '#ff8fa3', '#7fe3d8'], speed: [30, 190], life: [0.5, 1.3], size: [2, 5], gravity: 60, drag: 1.8 });
   }
 
-  return { update, draw, tap, tapTeaser, celebrate, anchorScreen: (id) => toScreen((ANCHOR[id] || TOCK_ANCHOR[id])[0], (ANCHOR[id] || TOCK_ANCHOR[id])[1]), invalidate: () => (key = '') };
+  return { update, draw, tap, tapTeaser, celebrate, anchorScreen: (id) => toScreen(anchorOf(id)[0], anchorOf(id)[1]), invalidate: () => (key = '') };
 }
 
 return { createWorldView };
@@ -5207,7 +6217,8 @@ function createDive(level, mods = {}) {
     hearthW: level.hearth.w * Math.min(T.hearthMaxScale, (mods.hearthScale || 1) * (1 + (mods.hearthGrow || 0))),
     chainMax: Math.round((T.chainWindow + (mods.chainWindow || 0) + (mods.chainBonus || 0)) / STEP),
     cogHits: 0,
-    rekindles: T.baseRekindles + (mods.extraRekindles || 0),
+    gustHits: 0,
+    rekindles: T.baseRekindles + (mods.extraRekindles || 0) + (mods.rekindleUp || 0),
     rekindlesUsed: 0,
     chain: 0,
     tier: 1,
@@ -5241,6 +6252,14 @@ function launch(sim, angle) {
   sim.spark.vx = Math.cos(a) * T.launchSpeed;
   sim.spark.vy = Math.sin(a) * T.launchSpeed;
   sim.phase = 'fly';
+  // a head start on the chain (Skating Pond, Flurrin): it still has to be kept alive
+  const head = (sim.mods.chainStart || 0) + (sim.mods.chainHead || 0);
+  if (head > 0) {
+    sim.chain = head;
+    sim.bestChain = Math.max(sim.bestChain, head);
+    sim.chainTicks = sim.chainMax;
+    sim.tier = tierOf(head);
+  }
   sim.inputs.push({ tick: sim.tick, kind: 'launch', angle: a });
   sim.events.push({ type: 'launch', x: sim.spark.x, y: sim.spark.y });
   return true;
@@ -5364,7 +6383,7 @@ function step(sim) {
 
   // --- cloud ledges ---
   for (const seg of lvl.segments) {
-    const impact = hitSegment(s, seg, T.ledgeRest);
+    const impact = hitSegment(s, seg, seg.kind === 'ice' ? T.iceRest : T.ledgeRest);
     if (impact > 90) sim.events.push({ type: 'ledge', x: s.x, y: s.y });
   }
 
@@ -5465,9 +6484,23 @@ function step(sim) {
         e.hits++;
         s.vy = -T.geyserSpeed;
         s.vx = s.vx * 0.35 + (FIELD.w / 2 - s.x) * 0.45;
-        gather(sim, T.geyserValue, e.x, e.y, 'geyser');
+        gather(sim, T.geyserValue + (m.gustBonus || 0), e.x, e.y, 'geyser');
         sim.events[sim.events.length - 1].id = e.id;
       }
+    } else if (e.kind === 'gust') {
+      // A gust of wind: not solid. While the Spark is inside it is pushed
+      // sideways, and the first couple of rides in a dive pay Glow.
+      const inside = Math.abs(s.x - e.x) < e.w / 2 && Math.abs(s.y - e.y) < e.h / 2;
+      if (inside) {
+        s.vx += e.dir * T.gustPush * STEP;
+        if (!e.inside && e.hits < T.gustCharges) {
+          e.hits++;
+          sim.gustHits++;
+          gather(sim, T.gustValue + (m.gustBonus || 0), s.x, s.y, 'gust');
+          sim.events[sim.events.length - 1].id = e.id;
+        }
+      }
+      e.inside = inside;
     } else if (e.kind === 'bubble') {
       if (e.moving) e.x = e.x0 + Math.sin(sim.tick * STEP * 1.25) * e.amp;
       const dx = s.x - e.x;
@@ -5516,6 +6549,7 @@ function summarize(sim) {
     motes: sim.motes,
     bumperHits: sim.bumperHits,
     cogHits: sim.cogHits,
+    gustHits: sim.gustHits,
     lit: sim.lit.slice(),
     lanternsLitNow: sim.lanternsLitNow.length,
     gotRelic: sim.gotRelic,
@@ -5540,6 +6574,10 @@ function previewPath(level, x, y, vx, vy, maxTicks = 150) {
     s.vy *= drag;
     s.x += s.vx * STEP;
     s.y += s.vy * STEP;
+    // wind bends the path, so the guide must show it
+    for (const e of level.ents) {
+      if (e.kind === 'gust' && Math.abs(s.x - e.x) < e.w / 2 && Math.abs(s.y - e.y) < e.h / 2) s.vx += e.dir * T.gustPush * STEP;
+    }
     if (s.x < s.r || s.x > FIELD.w - s.r || s.y < s.r || s.y > FIELD.h) break;
     let hit = false;
     for (const seg of level.segments) {
@@ -5590,7 +6628,16 @@ const DIAL_SLOTS = [
   [180, 306, 2], [98, 398, 2], [262, 398, 2],
   [142, 458, 3], [218, 458, 3]
 ];
-const LAYOUTS = { rows: SLOTS, dial: DIAL_SLOTS };
+
+// Hushfall's hollows are a six-pointed snowflake: a centre, a ring of points,
+// and long ice slides instead of cloud ledges.
+const FLAKE_SLOTS = [
+  [180, 178, 0], [92, 236, 0], [268, 236, 0],
+  [48, 306, 1], [312, 306, 1], [180, 300, 1],
+  [92, 374, 2], [268, 374, 2], [180, 372, 2],
+  [180, 444, 3]
+];
+const LAYOUTS = { rows: SLOTS, dial: DIAL_SLOTS, flake: FLAKE_SLOTS };
 
 // The first hollow every player sees (hollow 0) is authored by hand.
 const TUTORIAL = {
@@ -5715,6 +6762,8 @@ function buildLevel(hollow, mods = {}, style = {}) {
   const hasRelic = !tutorial && hollow.relic && !hollow.relicTaken;
   let nBumpers = tutorial ? TUTORIAL.bumpers.length : Math.min(4, 1 + (mods.bumpers || 0));
   if (layout === DIAL_SLOTS) nBumpers = Math.max(0, Math.min(nBumpers, pool.length - nCogs - (hasRelic ? 1 : 0) - 1));
+  // a snowflake hollow keeps anchors free for its ice slides
+  if (layout === FLAKE_SLOTS) nBumpers = Math.min(nBumpers, 2);
   for (let b = 0; b < nBumpers && pool.length; b++) {
     const s = take((q) => q.row >= 1);
     ents.push({ kind: 'bumper', x: s.x, y: s.y, r: 17 });
@@ -5734,12 +6783,33 @@ function buildLevel(hollow, mods = {}, style = {}) {
     ents.push({ kind: 'relic', x: s.x, y: s.y + 3, r: 13 });
   }
 
-  const nLedges = tutorial ? 0 : Math.min(2, pool.length);
+  const icy = layout === FLAKE_SLOTS;
+  const nLedges = tutorial ? 0 : Math.min(icy ? 3 : 2, pool.length);
   for (let l = 0; l < nLedges; l++) {
     const s = take();
     const dir = s.x < 150 ? 1 : s.x > 210 ? -1 : rng() < 0.5 ? 1 : -1; // slope toward the centre
+    if (icy) {
+      // a long ice slide, with motes laid along the glide
+      segments.push({ x1: s.x - 42, y1: s.y - 15 * dir, x2: s.x + 42, y2: s.y + 15 * dir, th: 4, kind: 'ice' });
+      for (let k = -2; k <= 2; k++) motes.push({ x: s.x + k * 17, y: s.y + k * 6 * dir - 20 });
+      continue;
+    }
     segments.push({ x1: s.x - 30, y1: s.y - 11 * dir, x2: s.x + 30, y2: s.y + 11 * dir, th: 4, kind: 'ledge' });
     for (let k = -1; k <= 1; k++) motes.push({ x: s.x + k * 20, y: s.y + k * 7 * dir - 24 });
+  }
+
+  // Gusts of wind (Hushfall): streams that blow in from alternate walls, each
+  // carrying a line of motes. They are not solid.
+  if (icy) {
+    const nGusts = Math.min(3, mods.gusts || 0);
+    const first = rng() < 0.5 ? 1 : -1;
+    for (let k = 0; k < nGusts; k++) {
+      const dir = k % 2 ? -first : first; // +1 blows right, from the left wall
+      const y = [268, 340, 412][k] + Math.round(range(rng, -8, 8));
+      const x = dir > 0 ? 105 : FIELD.w - 105;
+      ents.push({ kind: 'gust', x, y, w: 210, h: 52, dir });
+      for (let i = 0; i < 6; i++) motes.push({ x: x - dir * 80 + dir * i * 32, y: y + Math.sin(i * 1.3) * 6 });
+    }
   }
 
   // Remaining slots become mote clusters.
@@ -5853,7 +6923,7 @@ function createDiveView() {
   let awake = 0; // eased fraction of lanterns lit
   let endGlow = 0;
   let reduced = false; // accessibility: no shake, softer flashes
-  let theme = 'mist'; // which world's hollow this is: 'mist' (Mistlewick) or 'brass' (Tocktown)
+  let theme = 'mist'; // which world's hollow this is: 'mist' (Mistlewick), 'brass' (Tocktown) or 'frost' (Hushfall)
 
   function fit(W, H) {
     geom.W = W;
@@ -5891,6 +6961,7 @@ function createDiveView() {
     const g = bg.getContext('2d');
     g.scale(px, px);
     if (theme === 'brass') return buildBrassBg(g, W, H, seed);
+    if (theme === 'frost') return buildFrostBg(g, W, H, seed);
     if (cover(g, 'dive_backdrop', W, H)) return;
     const sky = g.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, '#1a1550');
@@ -5935,6 +7006,87 @@ function createDiveView() {
     for (let i = 0; i < 26; i++) {
       g.fillStyle = `rgba(255,224,160,${0.12 + rng() * 0.25})`;
       circle(g, rng() * 360, 380 + rng() * 200, 0.7 + rng() * 0.9);
+    }
+  }
+
+  /** Inside the snow globe: a still winter night, a great snowflake, pines at the edges. */
+  function buildFrostBg(g, W, H, seed) {
+    const sky = g.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#0c1c3a');
+    sky.addColorStop(0.45, '#1f3f6e');
+    sky.addColorStop(0.8, '#3d5f8f');
+    sky.addColorStop(1, '#2a3f66');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, W, H);
+    g.translate(geom.x0, geom.y0);
+    g.scale(geom.fs, geom.fs);
+    additive(g, () => {
+      glow(g, 110, 30, 200, '#7be0a0', 0.12);
+      glow(g, 260, 10, 220, '#b9a6ff', 0.12);
+      glow(g, 180, 640, 300, '#ffb86b', 0.14);
+    });
+    // the great snowflake the hollow is laid out on
+    g.lineCap = 'round';
+    g.strokeStyle = 'rgba(214,241,251,.13)';
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+      const ex = 180 + Math.cos(a) * 158;
+      const ey = 310 + Math.sin(a) * 158;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(180, 310);
+      g.lineTo(ex, ey);
+      g.stroke();
+      g.lineWidth = 2;
+      for (const f of [0.45, 0.7]) {
+        const bx = 180 + Math.cos(a) * 158 * f;
+        const by = 310 + Math.sin(a) * 158 * f;
+        g.beginPath();
+        g.moveTo(bx + Math.cos(a + 1.05) * 26, by + Math.sin(a + 1.05) * 26);
+        g.lineTo(bx, by);
+        g.lineTo(bx + Math.cos(a - 1.05) * 26, by + Math.sin(a - 1.05) * 26);
+        g.stroke();
+      }
+    }
+    // the glass curving in at the sides
+    for (const side of [-1, 1]) {
+      const cx = side < 0 ? -322 : 682;
+      g.fillStyle = 'rgba(214,241,251,.08)';
+      circle(g, cx, 330, 350);
+      g.strokeStyle = 'rgba(214,241,251,.36)';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(cx, 330, 350, 0, Math.PI * 2);
+      g.stroke();
+    }
+    // snow-laden pines at the foot of the hollow
+    const rng = mulberry32(seed);
+    for (let i = 0; i < 7; i++) {
+      const x = i < 4 ? 8 + rng() * 70 : 282 + rng() * 70;
+      const h = 44 + rng() * 40;
+      const base = 640;
+      for (let k = 0; k < 3; k++) {
+        const w = h * (0.42 - k * 0.1);
+        const y = base - k * h * 0.3;
+        g.fillStyle = 'rgba(20,44,70,.75)';
+        g.beginPath();
+        g.moveTo(x - w, y);
+        g.lineTo(x, y - h * 0.46);
+        g.lineTo(x + w, y);
+        g.closePath();
+        g.fill();
+        g.fillStyle = 'rgba(214,241,251,.2)';
+        g.beginPath();
+        g.moveTo(x - w * 0.5, y - h * 0.23);
+        g.lineTo(x, y - h * 0.46);
+        g.lineTo(x + w * 0.5, y - h * 0.23);
+        g.closePath();
+        g.fill();
+      }
+    }
+    for (let i = 0; i < 30; i++) {
+      g.fillStyle = `rgba(255,255,255,${0.1 + rng() * 0.25})`;
+      circle(g, rng() * 360, rng() * 420, 0.6 + rng() * 0.9);
     }
   }
 
@@ -6027,6 +7179,11 @@ function createDiveView() {
         pop(x, y - 28, '+' + ev.value, '#f8d789', 13, 0.7);
         shake = Math.max(shake, 0.22);
         break;
+      case 'gust':
+        pulses.set(ev.id, 1);
+        fx.emit(x, y, { n: 14, color: ['#ffffff', '#cfe8ff'], speed: [60, 220], life: [0.3, 0.7], size: [2, 4], glow: false });
+        pop(x, y - 26, '+' + ev.value, '#cfe8ff', 13, 0.7);
+        break;
       case 'thud':
         pulses.set(ev.id, 0.5);
         fx.emit(x, y, { n: 5, color: '#b9b3d9', speed: [20, 70], life: [0.25, 0.5], size: [2, 3], glow: false });
@@ -6115,6 +7272,28 @@ function createDiveView() {
     if (s.kind === 'roof' && has('roof')) {
       // a roof is two segments meeting at a peak: draw the image once, on the rising half
       if (s.y2 < s.y1) place(g, 'roof', s.x2, s.y2 + 6.5);
+      return;
+    }
+    if (s.kind === 'ice') {
+      // an ice slide: pale, glassy, with a line of light along its top edge
+      g.strokeStyle = '#5f97bd';
+      g.lineWidth = 12;
+      g.beginPath();
+      g.moveTo(s.x1, s.y1 + 3);
+      g.lineTo(s.x2, s.y2 + 3);
+      g.stroke();
+      g.strokeStyle = '#cdeefb';
+      g.lineWidth = 9;
+      g.beginPath();
+      g.moveTo(s.x1, s.y1);
+      g.lineTo(s.x2, s.y2);
+      g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,.9)';
+      g.lineWidth = 1.8;
+      g.beginPath();
+      g.moveTo(s.x1 + (s.x2 - s.x1) * 0.08, s.y1 + (s.y2 - s.y1) * 0.08 - 2.4);
+      g.lineTo(s.x1 + (s.x2 - s.x1) * 0.7, s.y1 + (s.y2 - s.y1) * 0.7 - 2.4);
+      g.stroke();
       return;
     }
     if (s.kind !== 'roof') {
@@ -6213,7 +7392,7 @@ function createDiveView() {
         for (let k = 0; k < T.bumperCharges - e.hits; k++) circle(g, e.x - 5 + k * 5, e.y + 4, 1.4);
       } else if (e.kind === 'lantern') {
         const lit = sim.lit[e.li];
-        if (theme !== 'brass' && place(g, lit ? 'lantern_on' : 'lantern_off', e.x, e.y - 1)) continue;
+        if (theme === 'mist' && place(g, lit ? 'lantern_on' : 'lantern_off', e.x, e.y - 1)) continue;
         // code-drawn lamp, enlarged to fill its hit area
         g.save();
         g.translate(e.x, e.y);
@@ -6311,7 +7490,7 @@ function createDiveView() {
     // the spout the Spark drops from
     const L = lvl.launcher;
     if (place(g, 'dive_spout', L.x, L.y - 48)) return;
-    g.fillStyle = theme === 'brass' ? '#a8742a' : '#d98a9e';
+    g.fillStyle = theme === 'brass' ? '#a8742a' : theme === 'frost' ? '#6f9cbb' : '#d98a9e';
     g.beginPath();
     g.moveTo(L.x - 30, -30);
     g.lineTo(L.x + 30, -30);
@@ -6319,7 +7498,7 @@ function createDiveView() {
     g.lineTo(L.x - 15, L.y - 10);
     g.closePath();
     g.fill();
-    g.fillStyle = theme === 'brass' ? '#e7ae4a' : '#f7c1cb';
+    g.fillStyle = theme === 'brass' ? '#e7ae4a' : theme === 'frost' ? '#cfe6f2' : '#f7c1cb';
     g.beginPath();
     g.moveTo(L.x - 30, -30);
     g.lineTo(L.x + 12, -30);
@@ -6373,7 +7552,7 @@ function createDiveView() {
       else if (e.kind === 'bumper' || e.kind === 'cog') hole(e.x, e.y, 42);
       else if (e.kind === 'geyser') hole(e.x, e.y - 4, 44);
     }
-    for (const s of sim.level.segments) hole((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2, 48);
+    for (const s of sim.level.segments) hole((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2, s.kind === 'ice' ? 62 : 48);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(dark, 0, 0, dw * q, dh * q);
   }
@@ -6401,12 +7580,27 @@ function createDiveView() {
           glow(g, e.x, by, 3.4, '#ffffff', 1);
         } else if (e.kind === 'lantern' && sim.lit[e.li]) {
           const p = pulses.get('L' + Math.round(e.x) + '_' + Math.round(e.y)) || 0;
-          if (theme !== 'brass' && has('lantern_on_glow')) place(g, 'lantern_on', e.x, e.y - 1, { glow: true, scale: 1 + p * 0.5, alpha: 0.7 + p * 0.3 + Math.sin(t * 3 + e.id) * 0.06 });
+          if (theme === 'mist' && has('lantern_on_glow')) place(g, 'lantern_on', e.x, e.y - 1, { glow: true, scale: 1 + p * 0.5, alpha: 0.7 + p * 0.3 + Math.sin(t * 3 + e.id) * 0.06 });
           else glow(g, e.x, e.y, 44 + p * 40 + Math.sin(t * 3 + e.id) * 3, '#ffcf5c', 0.6 + p * 0.4);
         } else if (e.kind === 'lantern') {
           glow(g, e.x, e.y, 26, '#b9a6ff', 0.3 + Math.sin(t * 2 + e.id) * 0.12);
         } else if (e.kind === 'relic') {
           glow(g, e.x, e.y, 24 + Math.sin(t * 3) * 3, '#ffcf5c', 0.5);
+        } else if (e.kind === 'gust') {
+          // a gust of wind: streaks of light racing the way it blows
+          const live = e.hits < T.gustCharges;
+          const a = (live ? 0.34 : 0.14) + (pulses.get(e.id) || 0) * 0.4;
+          for (let k = 0; k < 7; k++) {
+            const u = (((t * 0.9 * e.dir + k / 7) % 1) + 1) % 1;
+            const gx = e.x - e.w / 2 + u * e.w;
+            const gyy = e.y + ((k * 37) % 44) - 22;
+            const fade = Math.sin(u * Math.PI);
+            g.save();
+            g.translate(gx, gyy);
+            g.scale(5, 1);
+            glow(g, 0, 0, 5, '#d6f1fb', a * fade);
+            g.restore();
+          }
         } else if (e.kind === 'cog' && pulses.get(e.id)) {
           glow(g, e.x, e.y, e.r * 2.8, '#f5b942', pulses.get(e.id) * 0.8);
         } else if (e.kind === 'bumper' && pulses.get(e.id)) {
@@ -6444,6 +7638,28 @@ function createDiveView() {
         }
       }
     });
+
+    // which way each gust blows, drawn plainly so it reads at a glance
+    for (const e of sim.ents) {
+      if (e.kind !== 'gust') continue;
+      // the stream itself, faintly, so its edges are clear
+      g.fillStyle = `rgba(214,241,251,${e.hits < T.gustCharges ? 0.08 : 0.04})`;
+      roundRect(g, e.x - e.w / 2, e.y - e.h / 2, e.w, e.h, e.h / 2);
+      g.fill();
+      g.strokeStyle = `rgba(214,241,251,${e.hits < T.gustCharges ? 0.75 : 0.3})`;
+      g.lineWidth = 2;
+      g.lineCap = 'round';
+      g.lineJoin = 'round';
+      for (let k = 0; k < 3; k++) {
+        const cx = e.x + (k - 1) * 46 + ((t * 26 * e.dir) % 46);
+        if (Math.abs(cx - e.x) > e.w / 2 - 10) continue;
+        g.beginPath();
+        g.moveTo(cx - 5 * e.dir, e.y - 7);
+        g.lineTo(cx + 4 * e.dir, e.y);
+        g.lineTo(cx - 5 * e.dir, e.y + 7);
+        g.stroke();
+      }
+    }
 
     // finished art for the small bright things sits on top of their light
     if (has('mote')) {
@@ -6568,6 +7784,14 @@ function createDiveController(app) {
       s.flags.cogs = true;
       hint = 'New: spinning cogs fling your Spark the way they turn.';
     }
+    if (!hint && !s.flags.ice && sim.level.segments.some((g) => g.kind === 'ice')) {
+      s.flags.ice = true;
+      hint = 'New: ice slides. Your Spark glides along them instead of bouncing.';
+    }
+    if (!hint && !s.flags.gusts && sim.ents.some((e) => e.kind === 'gust')) {
+      s.flags.gusts = true;
+      hint = 'New: gusts of wind push your Spark sideways. The aim guide shows the bend.';
+    }
     app.ui.hint(hint);
     return true;
   }
@@ -6593,6 +7817,7 @@ function createDiveController(app) {
         sfx.wall();
         break;
       case 'geyser':
+      case 'gust':
         sfx.geyser();
         break;
       case 'creature': {
@@ -7136,9 +8361,10 @@ function createSheets(app, { toast, refresh, root }) {
 
   function completeHtml() {
     const world = worldOf(app.state);
-    const lead = world.id === 'tocktown'
-      ? 'The mainspring is wound, the tower keeps the hour, and the town is ticking again.'
-      : 'Every crack is sealed with gold, the lanterns are lit, and the village is home again.';
+    const lead = {
+      tocktown: 'The mainspring is wound, the tower keeps the hour, and the town is ticking again.',
+      hushfall: 'The glass is clear, every hearth is lit, and the first snow is falling at last.'
+    }[world.id] || 'Every crack is sealed with gold, the lanterns are lit, and the village is home again.';
     return `
       ${head('Case ' + world.caseNo + ' closed', world.name + ' is awake')}
       <div class="sh-body">
@@ -7669,7 +8895,7 @@ function createUi(app) {
     chain.querySelector('em').textContent = sim.tier > 1 ? '×' + sim.tier : '';
     chain.className = 'chain' + (sim.chain > 0 ? ' live t' + sim.tier : '');
     $('d-lanterns').innerHTML = sim.lit.map((on) => `<i class="lp${on ? ' on' : ''}"></i>`).join('');
-    const total = T.baseRekindles + (sim.mods.extraRekindles || 0);
+    const total = T.baseRekindles + (sim.mods.extraRekindles || 0) + (sim.mods.rekindleUp || 0);
     let rk = '';
     for (let i = 0; i < total; i++) rk += `<i class="rp${i < sim.rekindles ? ' on' : ''}">${ICON.spark}</i>`;
     $('d-rekindles').innerHTML = rk;
