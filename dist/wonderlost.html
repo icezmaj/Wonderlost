@@ -2344,6 +2344,8 @@ let version = 0; // bumps whenever what is drawn could change; views use it to d
 let debug = false;
 
 function loadAssets() {
+  // Rescue option: ?classic bypasses downloaded art without changing saved progress.
+  if (typeof location !== 'undefined' && /(?:\?|&)classic(?:[=&]|$)/.test(location.search)) return;
   if (typeof Image === 'undefined') return;
   for (const [name, url] of Object.entries(ASSET_INDEX)) {
     if (!FILES[name]) {
@@ -5732,8 +5734,14 @@ function createUi(app) {
     const node = $('wipe');
     node.classList.add('on');
     setTimeout(() => {
-      fn();
-      requestAnimationFrame(() => node.classList.remove('on'));
+      // Always let players interact again, even if navigation throws.
+      try {
+        fn();
+      } finally {
+        requestAnimationFrame(() => node.classList.remove('on'));
+        // Fallback when animation frames are delayed or interrupted.
+        setTimeout(() => node.classList.remove('on'), 500);
+      }
     }, 240);
   }
 

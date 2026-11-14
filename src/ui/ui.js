@@ -103,8 +103,14 @@ function createUi(app) {
     const node = $('wipe');
     node.classList.add('on');
     setTimeout(() => {
-      fn();
-      requestAnimationFrame(() => node.classList.remove('on'));
+      // Always let players interact again, even if navigation throws.
+      try {
+        fn();
+      } finally {
+        requestAnimationFrame(() => node.classList.remove('on'));
+        // Fallback when animation frames are delayed or interrupted.
+        setTimeout(() => node.classList.remove('on'), 500);
+      }
     }, 240);
   }
 

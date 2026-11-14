@@ -13,7 +13,8 @@ const path = require('node:path');
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
     const errors = [];
     page.on('pageerror', error => errors.push(error.stack || String(error)));
-    page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+    page.on('console', msg => { if (msg.type() === 'error' && !msg.text().includes('Failed to load resource: the server responded with a status of 404')) errors.push(msg.text()); });
+    page.on('response', response => { if (response.status() >= 400 && !/\/favicon\.ico(?:\?|$)/.test(response.url())) errors.push('HTTP ' + response.status() + ': ' + response.url()); });
     page.on('requestfailed', req => errors.push('Failed request: ' + req.url() + ' (' + req.failure()?.errorText + ')'));
     await page.goto('file://' + path.resolve(__dirname, '../docs/index.html'), { waitUntil: 'load' });
     await page.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
@@ -77,8 +78,18 @@ const path = require('node:path');
     await page.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
     await page.locator('#b-begin').click();
     await page.waitForFunction(() => window.__wonderlost.app.screen === 'home', null, { timeout: 15000 });
+    await page.waitForFunction(() => !document.getElementById('wipe').classList.contains('on'), null, { timeout: 5000 });
     await page.screenshot({ path: 'wonderlost-desktop-returning.png' });
     console.log('Public Pages existing save: returned to Home on desktop successfully');
+    // Non-destructive rescue mode must keep the game accessible if art fails.
+    const classic = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    try {
+      await classic.goto('https://icezmaj.github.io/Wonderlost/?classic', { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await classic.waitForFunction(() => window.__wonderlost?.app?.screen === 'title', null, { timeout: 15000 });
+      await classic.locator('#b-begin').click();
+      await classic.waitForFunction(() => window.__wonderlost.app.screen === 'dive', null, { timeout: 15000 });
+      console.log('Classic-art rescue mode: first dive started');
+    } finally { await classic.close(); }
     if (errors.length) throw new Error('Browser errors:\\n' + errors.join('\\n'));
     console.log('PASS: local title, dive, aim, home, Restore, second dive and public Pages launch.');
   } finally {

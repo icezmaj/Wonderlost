@@ -14,6 +14,8 @@ let version = 0; // bumps whenever what is drawn could change; views use it to d
 let debug = false;
 
 function loadAssets() {
+  // Rescue option: ?classic bypasses downloaded art without changing saved progress.
+  if (typeof location !== 'undefined' && /(?:\?|&)classic(?:[=&]|$)/.test(location.search)) return;
   if (typeof Image === 'undefined') return;
   for (const [name, url] of Object.entries(ASSET_INDEX)) {
     if (!FILES[name]) {
